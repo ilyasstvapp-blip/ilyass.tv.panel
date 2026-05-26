@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "home": "الرئيسية",
+    "download": "تحميل",
+    "features": "المميزات",
+    "screenshots": "لقطات الشاشة"
+  },
+  "hero": {
+    "badge": "خدمة IPTV متميزة",
+    "title": "ILYASS TV",
+    "subtitle": "بث IPTV متميز",
+    "description": "استمتع بتجربة بث IPTV المتميزة مع ILYASS TV. شاهد التلفزيون المباشر والأحداث والمحتوى عند الطلب على جميع أجهزتك.",
+    "cta_download": "تحميل الآن",
+    "cta_demo": "مشاهدة العرض",
+    "feature_no_buffer": "بدون تقطيع",
+    "feature_4k": "جودة 4K",
+    "feature_support": "دعم 24/7"
+  },
+  "download": {
+    "title": "تحميل ILYASS TV",
+    "subtitle": "اختر منصتك وابدأ البث فوراً",
+    "card_android": "أندرويد موبايل",
+    "card_android_desc": "للهواتف الذكية والأجهزة اللوحية",
+    "card_tv": "أندرويد تي في",
+    "card_tv_desc": "لأندرويد تي في وجوجل تي في",
+    "card_emulator": "إصدار المحاكي",
+    "card_emulator_desc": "لمحاكيات وأجهزة الكمبيوتر",
+    "card_code": "رمز التحميل",
+    "card_code_desc": "استخدم الرمز في تطبيق Downloader",
+    "card_apk": "APK مباشر",
+    "card_apk_desc": "تحميل ملف APK مباشر",
+    "button": "تحميل APK",
+    "version": "الإصدار",
+    "updated": "آخر تحديث"
+  },
+  "features": {
+    "title": "لماذا تختار ILYASS TV",
+    "subtitle": "كل ما تحتاجه لتجربة IPTV مثالية",
+    "live_tv": "تلفزيون مباشر",
+    "live_tv_desc": "وصول إلى مئات القنوات التلفزيونية المباشرة من جميع أنحاء العالم بجودة عالية.",
+    "live_events": "أحداث مباشرة",
+    "live_events_desc": "لا تفوت الأحداث المهمة مع البث المباشر والإشعارات الفورية.",
+    "responsive_ui": "واجهة متجاوبة",
+    "responsive_ui_desc": "واجهة جميلة تتكيف بسلاسة مع أي حجم شاشة أو جهاز.",
+    "fast_streaming": "بث سريع",
+    "fast_streaming_desc": "محرك بث محسّن مع أقل تقطيع ومعدل بت متكيف.",
+    "android_tv": "دعم أندرويد تي في",
+    "android_tv_desc": "محسّن لأندرويد تي في وجوجل تي في مع تنقل مناسب للريموت.",
+    "modern_player": "مشغل حديث",
+    "modern_player_desc": "مشغل فيديو غني بالميزات مع تحكم بالإيماءات ودعم متعدد الصوت."
+  },
+  "screenshots": {
+    "title": "لقطات الشاشة",
+    "subtitle": "شاهد ILYASS TV أثناء العمل على أجهزتك"
+  },
+  "footer": {
+    "description": "خدمة بث IPTV متميزة. شاهد التلفزيون المباشر والأحداث والمحتوى عند الطلب على جميع أجهزتك.",
+    "platform": "المنصة",
+    "company": "الشركة",
+    "rights": "جميع الحقوق محفوظة."
+  },
+  "admin": {
+    "login_title": "تسجيل دخول المشرف",
+    "login_subtitle": "سجل الدخول لإدارة ILYASS TV",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "sign_in": "تسجيل الدخول",
+    "signing_in": "جاري تسجيل الدخول...",
+    "back_home": "العودة إلى الصفحة الرئيسية",
+    "logout": "تسجيل الخروج",
+    "overview": "نظرة عامة",
+    "packages": "الباقات",
+    "channels": "القنوات",
+    "live_events": "الأحداث المباشرة",
+    "app_systems": "أنظمة التطبيق",
+    "device_sessions": "جلسات الأجهزة",
+    "settings": "الإعدادات"
+  }
+}

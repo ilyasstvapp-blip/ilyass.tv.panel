@@ -1,0 +1,45 @@
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[auth]
+enabled = true
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+inspector_port = 8083
+
+[functions]
+enabled = true
+verify_jwt = true
+
+[analytics]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MB"
+
+[storage.buckets.apks]
+public = true
+file_size_limit = "50MB"
+allowed_mime_types = ["application/vnd.android.package-archive", "application/zip", "application/octet-stream"]
+
+[storage.buckets.logos]
+public = true
+file_size_limit = "5MB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+
+[storage.buckets.events]
+public = true
+file_size_limit = "5MB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+
+[storage.buckets.popups]
+public = true
+file_size_limit = "5MB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]

@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "download": "Téléchargement",
+    "features": "Fonctionnalités",
+    "screenshots": "Captures d'écran"
+  },
+  "hero": {
+    "badge": "Service IPTV Premium",
+    "title": "ILYASS TV",
+    "subtitle": "Streaming IPTV Premium",
+    "description": "Découvrez l'expérience de streaming IPTV premium avec ILYASS TV. Regardez la télévision en direct, les événements et le contenu à la demande sur tous vos appareils.",
+    "cta_download": "Télécharger",
+    "cta_demo": "Voir la démo",
+    "feature_no_buffer": "Sans interruption",
+    "feature_4k": "Qualité 4K",
+    "feature_support": "Support 24/7"
+  },
+  "download": {
+    "title": "Télécharger ILYASS TV",
+    "subtitle": "Choisissez votre plateforme et commencez à streamer instantanément",
+    "card_android": "Android Mobile",
+    "card_android_desc": "Pour smartphones et tablettes",
+    "card_tv": "Android TV",
+    "card_tv_desc": "Pour Android TV et Google TV",
+    "card_emulator": "Version Émulateur",
+    "card_emulator_desc": "Pour émulateurs PC et simulateurs",
+    "card_code": "Code Downloader",
+    "card_code_desc": "Utilisez le code dans l'app Downloader",
+    "card_apk": "APK Direct",
+    "card_apk_desc": "Téléchargement direct du fichier APK",
+    "button": "Télécharger APK",
+    "version": "Version",
+    "updated": "Mis à jour"
+  },
+  "features": {
+    "title": "Pourquoi Choisir ILYASS TV",
+    "subtitle": "Tout ce dont vous avez besoin pour une expérience IPTV ultime",
+    "live_tv": "Télévision en Direct",
+    "live_tv_desc": "Accédez à des centaines de chaînes de télévision en direct du monde entier en qualité cristalline.",
+    "live_events": "Événements en Direct",
+    "live_events_desc": "Ne manquez jamais les événements importants avec le streaming en temps réel et les notifications.",
+    "responsive_ui": "Interface Adaptative",
+    "responsive_ui_desc": "Une interface magnifique qui s'adapte parfaitement à tous les écrans et appareils.",
+    "fast_streaming": "Streaming Rapide",
+    "fast_streaming_desc": "Moteur de streaming optimisé avec un minimum de buffering et un débit adaptatif.",
+    "android_tv": "Support Android TV",
+    "android_tv_desc": "Optimisé pour Android TV et Google TV avec une navigation adaptée à la télécommande.",
+    "modern_player": "Lecteur Moderne",
+    "modern_player_desc": "Lecteur vidéo riche en fonctionnalités avec commandes gestuelles et support multi-audio."
+  },
+  "screenshots": {
+    "title": "Captures d'écran",
+    "subtitle": "Voir ILYASS TV en action sur tous vos appareils"
+  },
+  "footer": {
+    "description": "Service de streaming IPTV premium. Regardez la télévision en direct, les événements et le contenu à la demande sur tous vos appareils.",
+    "platform": "Plateforme",
+    "company": "Société",
+    "rights": "Tous droits réservés."
+  },
+  "admin": {
+    "login_title": "Connexion Admin",
+    "login_subtitle": "Connectez-vous pour gérer ILYASS TV",
+    "email": "Email",
+    "password": "Mot de passe",
+    "sign_in": "Se connecter",
+    "signing_in": "Connexion en cours...",
+    "back_home": "Retour à l'accueil",
+    "logout": "Déconnexion",
+    "overview": "Aperçu",
+    "packages": "Forfaits",
+    "channels": "Chaînes",
+    "live_events": "Événements en Direct",
+    "app_systems": "Systèmes d'Application",
+    "device_sessions": "Sessions Appareils",
+    "settings": "Paramètres"
+  }
+}

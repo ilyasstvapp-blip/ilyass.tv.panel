@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "home": "Home",
+    "download": "Download",
+    "features": "Features",
+    "screenshots": "Screenshots"
+  },
+  "hero": {
+    "badge": "Premium IPTV Service",
+    "title": "ILYASS TV",
+    "subtitle": "Premium IPTV",
+    "description": "Experience premium IPTV streaming with ILYASS TV. Watch live TV, events, and on-demand content across all your devices.",
+    "cta_download": "Download Now",
+    "cta_demo": "Watch Demo",
+    "feature_no_buffer": "No Buffering",
+    "feature_4k": "4K Quality",
+    "feature_support": "24/7 Support"
+  },
+  "download": {
+    "title": "Download ILYASS TV",
+    "subtitle": "Choose your platform and start streaming instantly",
+    "card_android": "Android Mobile",
+    "card_android_desc": "For smartphones and tablets",
+    "card_tv": "Android TV",
+    "card_tv_desc": "For Android TV & Google TV",
+    "card_emulator": "Emulator Version",
+    "card_emulator_desc": "For PC emulators and simulators",
+    "card_code": "Downloader Code",
+    "card_code_desc": "Use code in Downloader app",
+    "card_apk": "Direct APK",
+    "card_apk_desc": "Direct APK file download",
+    "button": "Download APK",
+    "version": "Version",
+    "updated": "Updated"
+  },
+  "features": {
+    "title": "Why Choose ILYASS TV",
+    "subtitle": "Everything you need for the ultimate IPTV experience",
+    "live_tv": "Live TV",
+    "live_tv_desc": "Access hundreds of live TV channels from around the world in crystal clear quality.",
+    "live_events": "Live Events",
+    "live_events_desc": "Never miss important live events with real-time streaming and notifications.",
+    "responsive_ui": "Responsive UI",
+    "responsive_ui_desc": "Beautiful interface that adapts seamlessly to any screen size or device.",
+    "fast_streaming": "Fast Streaming",
+    "fast_streaming_desc": "Optimized streaming engine with minimal buffering and adaptive bitrate.",
+    "android_tv": "Android TV Support",
+    "android_tv_desc": "Optimized for Android TV and Google TV with remote-friendly navigation.",
+    "modern_player": "Modern Player",
+    "modern_player_desc": "Feature-rich video player with gesture controls and multi-audio support."
+  },
+  "screenshots": {
+    "title": "App Screenshots",
+    "subtitle": "See ILYASS TV in action across your devices"
+  },
+  "footer": {
+    "description": "Premium IPTV streaming service. Watch live TV, events, and on-demand content on all your devices.",
+    "platform": "Platform",
+    "company": "Company",
+    "rights": "All rights reserved."
+  },
+  "admin": {
+    "login_title": "Admin Login",
+    "login_subtitle": "Sign in to manage ILYASS TV",
+    "email": "Email",
+    "password": "Password",
+    "sign_in": "Sign In",
+    "signing_in": "Signing in...",
+    "back_home": "Back to homepage",
+    "logout": "Logout",
+    "overview": "Overview",
+    "packages": "Packages",
+    "channels": "Channels",
+    "live_events": "Live Events",
+    "app_systems": "App Systems",
+    "device_sessions": "Device Sessions",
+    "settings": "Settings"
+  }
+}
