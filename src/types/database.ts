@@ -14,6 +14,7 @@ export interface Channel {
   logo: string
   servers: ChannelServer[]
   is_active: boolean
+  sort_order: number
   created_at: string
 }
 
@@ -29,10 +30,13 @@ export interface LiveEvent {
   team2_name: string
   team2_logo: string | null
   match_time: string
+  event_time: string
+  event_end_time: string | null
   league: string
   commentator: string
   channel_key: string
   channel_name: string
+  sort_order: number
   created_at: string
 }
 
@@ -45,6 +49,8 @@ export interface AppSystem {
   button_text: string
   button_action: string
   update_url: string | null
+  app_version: string | null
+  latest_version: string | null
   force_update: boolean
   end_time: string | null
   closable: boolean
@@ -80,18 +86,31 @@ export interface DeviceSession {
   build_number: string | null
 }
 
+export interface DevicePresence {
+  id: string; device_id: string; is_online: boolean; first_open_at: string;
+  last_open_at: string; last_seen_at: string; closed_at: string | null;
+  total_opens: number; created_at: string; updated_at: string
+}
+
+export interface DevicePresenceStatus {
+  device_id: string; last_seen_at: string; realtime_online: boolean
+}
+
+export interface DeviceWithPresence extends DeviceSession {
+  presence?: DevicePresence | null
+  presence_status?: DevicePresenceStatus | null
+  realtime_online?: boolean
+  total_opens?: number
+  last_open_at?: string
+  last_seen_at?: string
+}
+
 export interface DashboardAnalytics {
-  total_packages: number
-  active_packages: number
-  total_channels: number
-  active_channels: number
-  total_events: number
-  channel_keys: number
-  total_devices: number
-  active_devices: number
-  maintenance_active: boolean
-  popup_active: boolean
-  social_popup_active: boolean
-  update_active: boolean
+  total_packages: number; active_packages: number; total_channels: number;
+  active_channels: number; total_events: number; channel_keys: number;
+  total_devices: number; active_devices: number; online_devices: number;
+  offline_devices: number; total_tvs: number; total_tablets: number;
+  total_phones: number; maintenance_active: boolean;
+  popup_active: boolean; social_popup_active: boolean; update_active: boolean;
   latest_sessions: DeviceSession[]
 }

@@ -1,4 +1,4 @@
-import type { Package, Channel, LiveEvent, AppSystem, DeviceSession } from "./database"
+import type { Package, Channel, LiveEvent, AppSystem, DeviceSession, DevicePresence, DevicePresenceStatus, DeviceWithPresence } from "./database"
 
 export type {
   Package,
@@ -6,4 +6,7 @@ export type {
   LiveEvent,
   AppSystem,
   DeviceSession,
+  DevicePresence,
+  DevicePresenceStatus,
+  DeviceWithPresence,
 }

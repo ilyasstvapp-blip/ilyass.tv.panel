@@ -1,4 +1,4 @@
-import type { DashboardAnalytics, DeviceSession } from "@/types/database"
+import type { DashboardAnalytics } from "@/types/database"
 
 async function api(path: string) {
   const res = await fetch(path)
@@ -27,6 +27,11 @@ export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
   const channelKeys = new Set(events.map((e: any) => e.channel_key)).size
   const totalDevices = devices.length
   const activeDevices = devices.filter((d: any) => !d.is_banned).length
+  const onlineDevices = devices.filter((d: any) => d.realtime_online).length
+  const offlineDevices = totalDevices - onlineDevices
+  const totalTvs = devices.filter((d: any) => d.is_tv).length
+  const totalTablets = devices.filter((d: any) => d.is_tablet).length
+  const totalPhones = devices.filter((d: any) => !d.is_tv && !d.is_tablet).length
 
   const appSysArr = appSystems ?? []
   const maintenanceActive = appSysArr.find((s: any) => s.type === "maintenance")?.enabled ?? false
@@ -34,7 +39,7 @@ export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
   const socialPopupActive = appSysArr.find((s: any) => s.type === "social_popup")?.enabled ?? false
   const updateActive = appSysArr.find((s: any) => s.type === "update")?.enabled ?? false
 
-  const latestSessions = (devices as DeviceSession[]).slice(0, 5)
+  const latestSessions = devices.slice(0, 5)
 
   return {
     total_packages: totalPackages,
@@ -45,6 +50,11 @@ export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
     channel_keys: channelKeys,
     total_devices: totalDevices,
     active_devices: activeDevices,
+    online_devices: onlineDevices,
+    offline_devices: offlineDevices,
+    total_tvs: totalTvs,
+    total_tablets: totalTablets,
+    total_phones: totalPhones,
     maintenance_active: maintenanceActive,
     popup_active: popupActive,
     social_popup_active: socialPopupActive,

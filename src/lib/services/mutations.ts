@@ -30,14 +30,18 @@ export async function deletePackage(id: string) {
   return apiPost("/api/packages", { action: "delete", id })
 }
 
+export async function reorderPackages(items: { id: string; sort_order: number }[]) {
+  return apiPost("/api/packages", { action: "reorder", items })
+}
+
 export async function createChannel(data: {
-  package_id: string; channel_key: string; name: string; logo?: string; servers?: { url: string; name: string }[]
+  package_id: string; channel_key: string; name: string; logo?: string; servers?: { url: string; name: string }[]; sort_order?: number
 }) {
   return apiPost("/api/channels", { action: "create", ...data })
 }
 
 export async function updateChannel(id: string, data: Partial<{
-  package_id: string; channel_key: string; name: string; logo: string; servers: { url: string; name: string }[]; is_active: boolean
+  package_id: string; channel_key: string; name: string; logo: string; servers: { url: string; name: string }[]; is_active: boolean; sort_order: number
 }>) {
   return apiPost("/api/channels", { action: "update", id, ...data })
 }
@@ -48,14 +52,16 @@ export async function deleteChannel(id: string) {
 
 export async function createEvent(data: {
   team1_name: string; team2_name: string; match_time: string; league: string; commentator: string;
-  channel_key: string; channel_name: string; team1_logo?: string | null; team2_logo?: string | null
+  channel_key: string; channel_name: string; team1_logo?: string | null; team2_logo?: string | null;
+  sort_order?: number
 }) {
   return apiPost("/api/live-events", { action: "create", ...data })
 }
 
 export async function updateEvent(id: string, data: Partial<{
   team1_name: string; team2_name: string; match_time: string; league: string; commentator: string;
-  channel_key: string; channel_name: string; team1_logo: string | null; team2_logo: string | null
+  channel_key: string; channel_name: string; team1_logo: string | null; team2_logo: string | null;
+  sort_order: number
 }>) {
   return apiPost("/api/live-events", { action: "update", id, ...data })
 }
@@ -66,7 +72,16 @@ export async function deleteEvent(id: string) {
 
 export async function updateAppSystem(type: AppSystemType, data: Partial<{
   enabled: boolean; title: string; message: string; button_text: string; button_action: string;
-  update_url: string | null; force_update: boolean; end_time: string | null; closable: boolean
+  update_url: string | null; app_version: string | null; latest_version: string | null;
+  force_update: boolean; end_time: string | null; closable: boolean
 }>) {
   return apiPost("/api/app-systems", { action: "update", type, ...data })
+}
+
+export async function banDevice(id: string) {
+  return apiPost("/api/device-sessions", { action: "ban", id })
+}
+
+export async function unbanDevice(id: string) {
+  return apiPost("/api/device-sessions", { action: "unban", id })
 }

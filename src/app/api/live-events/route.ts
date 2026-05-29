@@ -38,6 +38,7 @@ export async function POST(request: Request) {
         team1_logo: body.team1_logo ?? null, team2_logo: body.team2_logo ?? null,
         match_time: body.match_time, league: body.league, commentator: body.commentator,
         channel_key: body.channel_key, channel_name: body.channel_name,
+        sort_order: body.sort_order ?? 0,
       }).select().single()
       if (error) throw error
       return NextResponse.json({ data }, { status: 201 })
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       if (body.commentator !== undefined) updates.commentator = body.commentator
       if (body.channel_key !== undefined) updates.channel_key = body.channel_key
       if (body.channel_name !== undefined) updates.channel_name = body.channel_name
+      if (body.sort_order !== undefined) updates.sort_order = body.sort_order
       const { data, error } = await supabase.from("live_events").update(updates).eq("id", body.id).select().single()
       if (error) throw error
       return NextResponse.json({ data })

@@ -11,9 +11,11 @@ export function usePackages(options?: {
   sortOrder?: "asc" | "desc"
   page?: number
   pageSize?: number
+  includeChannelCounts?: boolean
 }) {
   const [data, setData] = useState<Package[]>([])
   const [count, setCount] = useState(0)
+  const [channelCounts, setChannelCounts] = useState<Record<string, number> | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,6 +26,7 @@ export function usePackages(options?: {
       const result = await fetchPackages(options)
       setData(result.data)
       setCount(result.count)
+      if (result.channelCounts) setChannelCounts(result.channelCounts)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load packages")
     } finally {
@@ -33,5 +36,5 @@ export function usePackages(options?: {
 
   useEffect(() => { load() }, [load])
 
-  return { data, count, loading, error, refetch: load }
+  return { data, count, channelCounts, loading, error, refetch: load }
 }

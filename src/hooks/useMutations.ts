@@ -2,10 +2,10 @@
 
 import { useState, useCallback } from "react"
 import {
-  createPackage, updatePackage, deletePackage,
+  createPackage, updatePackage, deletePackage, reorderPackages,
   createChannel, updateChannel, deleteChannel,
   createEvent, updateEvent, deleteEvent,
-  updateAppSystem,
+  updateAppSystem, banDevice, unbanDevice,
 } from "@/lib/services/mutations"
 import type { AppSystemType } from "@/types/database"
 
@@ -33,6 +33,7 @@ function useMutation<T extends (...args: any[]) => Promise<any>>(fn: T) {
 export function useCreatePackage() { return useMutation(createPackage) }
 export function useUpdatePackage() { return useMutation(updatePackage) }
 export function useDeletePackage() { return useMutation(deletePackage) }
+export function useReorderPackages() { return useMutation(reorderPackages) }
 
 export function useCreateChannel() { return useMutation(createChannel) }
 export function useUpdateChannel() { return useMutation(updateChannel) }
@@ -43,3 +44,6 @@ export function useUpdateEvent() { return useMutation(updateEvent) }
 export function useDeleteLiveEvent() { return useMutation(deleteEvent) }
 
 export function useUpdateAppSystem() { return useMutation(updateAppSystem) }
+
+export function useBanDevice() { return useMutation(banDevice) }
+export function useUnbanDevice() { return useMutation(unbanDevice) }

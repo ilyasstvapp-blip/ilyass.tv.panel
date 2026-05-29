@@ -33,6 +33,8 @@ export async function POST(request: Request) {
       if (body.button_text !== undefined) updates.button_text = body.button_text
       if (body.button_action !== undefined) updates.button_action = body.button_action
       if (body.update_url !== undefined) updates.update_url = body.update_url
+      if (body.app_version !== undefined) updates.app_version = body.app_version
+      if (body.latest_version !== undefined) updates.latest_version = body.latest_version
       if (body.force_update !== undefined) updates.force_update = body.force_update
       if (body.end_time !== undefined) updates.end_time = body.end_time
       if (body.closable !== undefined) updates.closable = body.closable

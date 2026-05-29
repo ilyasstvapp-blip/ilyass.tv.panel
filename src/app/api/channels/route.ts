@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       const { data, error } = await supabase.from("channels").insert({
         package_id: body.package_id, channel_key: body.channel_key, name: body.name,
         logo: body.logo ?? "", servers: body.servers ?? [],
+        sort_order: body.sort_order ?? 0,
       }).select().single()
       if (error) throw error
       return NextResponse.json({ data }, { status: 201 })
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       if (body.logo !== undefined) updates.logo = body.logo
       if (body.servers !== undefined) updates.servers = body.servers
       if (body.is_active !== undefined) updates.is_active = body.is_active
+      if (body.sort_order !== undefined) updates.sort_order = body.sort_order
       const { data, error } = await supabase.from("channels").update(updates).eq("id", body.id).select().single()
       if (error) throw error
       return NextResponse.json({ data })

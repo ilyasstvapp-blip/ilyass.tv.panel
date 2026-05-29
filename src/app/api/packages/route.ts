@@ -21,7 +21,23 @@ export async function GET(request: Request) {
     const from = (page - 1) * pageSize
     const { data, error, count } = await query.order(sortBy, { ascending: sortOrder === "asc" }).range(from, from + pageSize - 1)
     if (error) throw error
-    return NextResponse.json({ data, count })
+
+    // Optionally include channel counts per package
+    const includeChannelCounts = searchParams.get("includeChannelCounts") === "true"
+    let channelCounts: Record<string, number> = {}
+    if (includeChannelCounts && data?.length) {
+      const { data: channels } = await supabase
+        .from("channels")
+        .select("package_id")
+        .in("package_id", data.map((p) => p.id))
+      if (channels) {
+        for (const ch of channels) {
+          channelCounts[ch.package_id] = (channelCounts[ch.package_id] || 0) + 1
+        }
+      }
+    }
+
+    return NextResponse.json({ data, count, channelCounts: includeChannelCounts ? channelCounts : undefined })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to fetch packages" }, { status: 500 })
   }
@@ -53,6 +69,16 @@ export async function POST(request: Request) {
     if (action === "delete") {
       const { error } = await supabase.from("packages").delete().eq("id", body.id)
       if (error) throw error
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === "reorder") {
+      const { items } = body
+      if (!Array.isArray(items)) return NextResponse.json({ error: "items array required" }, { status: 400 })
+      for (const item of items) {
+        const { error } = await supabase.from("packages").update({ sort_order: item.sort_order }).eq("id", item.id)
+        if (error) throw error
+      }
       return NextResponse.json({ success: true })
     }
 

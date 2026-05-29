@@ -8,38 +8,45 @@ import { useDashboardAnalytics } from "@/hooks/useAnalytics"
 import { useAllChannels } from "@/hooks/useChannels"
 import { useEvents } from "@/hooks/useEvents"
 import { useDeviceSessions } from "@/hooks/useDevices"
+import { motion } from "framer-motion"
 
-type StatColor = "cyan" | "green" | "orange" | "pink"
-
-const statConfig: Record<string, { label: string; path: string; color: StatColor; icon: string }> = {
-  packages: { label: "Packages", path: "/dashboard/packages", color: "cyan", icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
-  channels: { label: "Channels", path: "/dashboard/channels", color: "green", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
-  events: { label: "Live Events", path: "/dashboard/events", color: "orange", icon: "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" },
-  devices: { label: "Active Devices", path: "/dashboard/devices", color: "pink", icon: "M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" },
+const statConfig: Record<string, { label: string; path: string; color: string; glow: string; gradient: string; icon: string }> = {
+  packages: { label: "Total Packages", path: "/dashboard/packages", color: "var(--accent-cyan)", glow: "glow-cyan", gradient: "var(--gradient-cyan)", icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
+  channels: { label: "Total Channels", path: "/dashboard/channels", color: "var(--accent-green)", glow: "glow-green", gradient: "var(--gradient-green)", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+  events: { label: "Live Events", path: "/dashboard/events", color: "var(--accent-orange)", glow: "glow-orange", gradient: "var(--gradient-orange)", icon: "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" },
+  devices: { label: "Total Devices", path: "/dashboard/devices", color: "var(--accent-pink)", glow: "glow-pink", gradient: "var(--gradient-pink)", icon: "M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" },
 }
 
-const gradientMap: Record<StatColor, string> = {
-  cyan: "var(--gradient-cyan)",
-  green: "var(--gradient-green)",
-  orange: "var(--gradient-orange)",
-  pink: "var(--gradient-pink)",
-}
-
-const glowMap: Record<StatColor, string> = {
-  cyan: "glow-cyan",
-  green: "glow-green",
-  orange: "glow-orange",
-  pink: "glow-pink",
+function AnimatedCounter({ value, color }: { value: number; color: string }) {
+  const [display, setDisplay] = useState(0)
+  useEffect(() => {
+    if (value === 0) { setDisplay(0); return }
+    const duration = 800
+    const steps = 20
+    const increment = value / steps
+    let current = 0
+    const timer = setInterval(() => {
+      current += increment
+      if (current >= value) {
+        setDisplay(value)
+        clearInterval(timer)
+      } else {
+        setDisplay(Math.floor(current))
+      }
+    }, duration / steps)
+    return () => clearInterval(timer)
+  }, [value])
+  return <span style={{ color }}>{display.toLocaleString()}</span>
 }
 
 export default function DashboardOverview() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
-  const { data: analytics, loading: analyticsLoading } = useDashboardAnalytics()
+  const { data: analytics, loading: analyticsLoading } = useDashboardAnalytics(15000)
   const { data: recentChannels } = useAllChannels()
   const { data: recentEvents } = useEvents({ pageSize: 5 })
-  const { data: recentDevices } = useDeviceSessions({ pageSize: 3 })
+  const { data: recentDevices } = useDeviceSessions({ pageSize: 5, pollInterval: 15000 })
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -49,7 +56,7 @@ export default function DashboardOverview() {
         <Navbar />
         <div className="flex-1 p-6 space-y-6 animate-pulse" style={{ background: "var(--bg-primary)" }}>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="stat-card" style={{ background: "var(--surface)", height: 140 }} />)}
+            {[1, 2, 3, 4].map((i) => <div key={i} className="card-premium" style={{ height: 140 }} />)}
           </div>
         </div>
       </>
@@ -57,164 +64,254 @@ export default function DashboardOverview() {
   }
   if (!user) return null
 
-  const stats = [
-    { key: "packages", value: analytics?.total_packages ?? 0 },
-    { key: "channels", value: analytics?.total_channels ?? 0 },
-    { key: "events", value: analytics?.total_events ?? 0 },
-    { key: "devices", value: analytics?.active_devices ?? 0 },
+  const mainStats: { key: string; value: number; cfg: typeof statConfig[keyof typeof statConfig] }[] = [
+    { key: "packages", value: analytics?.total_packages ?? 0, cfg: statConfig.packages },
+    { key: "channels", value: analytics?.total_channels ?? 0, cfg: statConfig.channels },
+    { key: "events", value: analytics?.total_events ?? 0, cfg: statConfig.events },
+    { key: "devices", value: analytics?.total_devices ?? 0, cfg: statConfig.devices },
+  ]
+
+  const presenceCards = [
+    { label: "Online Devices", value: analytics?.online_devices ?? 0, color: "var(--accent-green)" },
+    { label: "Offline Devices", value: analytics?.offline_devices ?? 0, color: "var(--accent-orange)" },
+    { label: "TVs", value: analytics?.total_tvs ?? 0, color: "var(--accent-purple)" },
+    { label: "Tablets", value: analytics?.total_tablets ?? 0, color: "var(--accent-cyan)" },
+    { label: "Phones", value: analytics?.total_phones ?? 0, color: "var(--accent-pink)" },
   ]
 
   const appSystems = [
-    { label: "Maintenance", active: analytics?.maintenance_active ?? false },
-    { label: "Popup", active: analytics?.popup_active ?? false },
-    { label: "Social", active: analytics?.social_popup_active ?? false },
-    { label: "Update", active: analytics?.update_active ?? false },
+    { label: "Maintenance", active: analytics?.maintenance_active ?? false, color: "var(--accent-orange)", glow: "glow-orange" },
+    { label: "Popup", active: analytics?.popup_active ?? false, color: "var(--accent-cyan)", glow: "glow-cyan" },
+    { label: "Social", active: analytics?.social_popup_active ?? false, color: "var(--accent-pink)", glow: "glow-pink" },
+    { label: "Update", active: analytics?.update_active ?? false, color: "var(--accent-green)", glow: "glow-green" },
   ]
 
   return (
     <>
       <Navbar />
-      <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8" style={{ background: "var(--bg-primary)" }}>
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s, i) => {
-            const cfg = statConfig[s.key]
-            return (
-              <div key={s.key}
-                onClick={() => router.push(cfg.path)}
-                className={`stat-card ${glowMap[cfg.color]} animate-fade-in`}
-                style={{ background: "var(--surface)", animationDelay: `${i * 0.1}s` }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: `${gradientMap[cfg.color]}15` }}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      style={{ color: `var(--accent-${cfg.color === "cyan" ? "cyan" : cfg.color === "green" ? "green" : cfg.color === "orange" ? "orange" : "pink"})` }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={cfg.icon} />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                    style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
-                    {cfg.label}
-                  </span>
-                </div>
-                <p className="text-3xl font-bold" style={{ color: `var(--accent-${cfg.color === "cyan" ? "cyan" : cfg.color === "green" ? "green" : cfg.color === "orange" ? "orange" : "pink"})` }}>
-                  {analyticsLoading ? "—" : s.value.toLocaleString()}
-                </p>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                  Click to manage
-                </p>
-              </div>
-            )
-          })}
+      <div className="flex-1 content-area space-y-6 xl:space-y-8" style={{ background: "var(--bg-primary)" }}>
+        <div>
+          <h1 className="text-2xl xl:text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Dashboard Overview
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            Real-time analytics from your IPTV platform
+          </p>
         </div>
 
-        {/* System Status */}
-        <div className="card p-6" style={{ background: "var(--surface)" }}>
-          <h2 className="text-lg font-semibold mb-5" style={{ color: "var(--text-primary)" }}>System Status</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {appSystems.map((sys) => (
-              <div key={sys.label} className="rounded-xl p-4 flex items-center gap-3"
-                style={{ background: sys.active ? "rgba(52,211,153,0.06)" : "var(--bg-tertiary)", border: `1px solid ${sys.active ? "rgba(52,211,153,0.15)" : "var(--border)"}` }}>
-                <span className={`w-3 h-3 rounded-full ${sys.active ? "bg-green-400 animate-pulse-glow" : "bg-gray-600"}`} />
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{sys.label}</p>
-                  <p className="text-xs" style={{ color: sys.active ? "var(--accent-green)" : "var(--text-muted)" }}>
-                    {sys.active ? "Active" : "Inactive"}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {mainStats.map((s, i) => (
+            <motion.div
+              key={s.key}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+              onClick={() => router.push(s.cfg.path)}
+              className="relative overflow-hidden group cursor-pointer rounded-2xl p-[1px]"
+              style={{ background: `linear-gradient(135deg, ${s.cfg.color}30, transparent 60%)` }}
+            >
+              <div className="rounded-2xl p-5 h-full" style={{ background: "var(--surface)" }}>
+                <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${s.cfg.glow}`} />
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
+                      style={{ background: `${s.cfg.color}18` }}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: s.cfg.color }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={s.cfg.icon} />
+                      </svg>
+                    </div>
+                    <span className="badge badge-premium text-[10px]">
+                      {analyticsLoading ? "..." : "Live"}
+                    </span>
+                  </div>
+                  <p className="text-2xl xl:text-3xl font-bold tracking-tight" style={{ color: s.cfg.color }}>
+                    {analyticsLoading ? (
+                      <span style={{ color: s.cfg.color }}>—</span>
+                    ) : (
+                      <AnimatedCounter value={s.value} color={s.cfg.color} />
+                    )}
+                  </p>
+                  <p className="text-xs mt-1 font-medium" style={{ color: "var(--text-muted)" }}>
+                    {s.cfg.label}
                   </p>
                 </div>
               </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold mb-4 tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Online Users
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
+            {presenceCards.map((s, i) => (
+              <motion.div key={s.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                className="stat-card-3d">
+                <div className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>{s.label}</div>
+                <p className="text-2xl xl:text-3xl font-bold tracking-tight" style={{ color: s.color }}>
+                  {analyticsLoading ? "\u2014" : s.value.toLocaleString()}
+                </p>
+              </motion.div>
             ))}
           </div>
         </div>
 
-        {/* Recent Activity Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="card p-6" style={{ background: "var(--surface)" }}>
+        <div>
+          <h2 className="text-lg font-semibold mb-4 tracking-tight" style={{ color: "var(--text-primary)" }}>
+            System Status
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            {appSystems.map((sys, i) => (
+              <motion.div
+                key={sys.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                className={`rounded-2xl p-4 flex items-center gap-3 transition-all duration-200 hover:-translate-y-0.5 ${sys.active ? sys.glow : ""}`}
+                style={{
+                  background: sys.active ? `${sys.color}08` : "var(--bg-tertiary)",
+                  border: `1px solid ${sys.active ? `${sys.color}25` : "var(--border)"}`,
+                }}
+              >
+                <span className="relative flex w-3 h-3">
+                  {sys.active && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: sys.color }} />
+                  )}
+                  <span className={`relative inline-flex rounded-full w-3 h-3 ${sys.active ? "" : "opacity-30"}`}
+                    style={{ background: sys.active ? sys.color : "var(--text-muted)" }} />
+                </span>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{sys.label}</p>
+                  <p className="text-xs" style={{ color: sys.active ? sys.color : "var(--text-muted)" }}>
+                    {sys.active ? "Active" : "Inactive"}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 xl:gap-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="card-3d-static p-5"
+          >
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <span className="w-1.5 h-5 rounded-full" style={{ background: "var(--gradient-green)" }} />
+              <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-green)" }} />
               Latest Channels
             </h3>
             <div className="space-y-3">
               {(recentChannels ?? []).slice(0, 5).map((ch) => (
-                <div key={ch.id} className="flex items-center gap-3">
-                  {ch.logo ? <img src={ch.logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                    : <div className="w-8 h-8 rounded-lg" style={{ background: "var(--bg-tertiary)" }} />}
+                <div key={ch.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-surface-hover">
+                  {ch.logo ? (
+                    <img src={ch.logo} alt="" className="w-9 h-9 rounded-xl object-cover" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold"
+                      style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>TV</div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{ch.name}</p>
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>{ch.channel_key}</p>
                   </div>
-                  <span className={`badge ${ch.is_active ? "badge-active" : "badge-inactive"}`}>
+                  <span className={`badge ${ch.is_active ? "badge-active" : "badge-inactive"} text-[10px]`}>
                     {ch.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
               ))}
               {(!recentChannels || recentChannels.length === 0) && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>No channels yet</p>
+                <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>No channels yet</p>
               )}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="card p-6" style={{ background: "var(--surface)" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="card-3d-static p-5"
+          >
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <span className="w-1.5 h-5 rounded-full" style={{ background: "var(--gradient-orange)" }} />
-              Upcoming Events
-            </h3>
-            <div className="space-y-3">
-              {(recentEvents ?? []).slice(0, 5).map((ev) => (
-                <div key={ev.id} className="flex items-center gap-3">
-                  <div className="flex -space-x-1">
-                    {ev.team1_logo && <img src={ev.team1_logo} alt="" className="w-7 h-7 rounded-full border-2" style={{ borderColor: "var(--surface)" }} />}
-                    {ev.team2_logo && <img src={ev.team2_logo} alt="" className="w-7 h-7 rounded-full border-2" style={{ borderColor: "var(--surface)" }} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                      {ev.team1_name} vs {ev.team2_name}
-                    </p>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {new Date(ev.match_time).toLocaleDateString()} • {ev.league}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {(!recentEvents || recentEvents.length === 0) && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>No upcoming events</p>
-              )}
-            </div>
-          </div>
-
-          <div className="card p-6" style={{ background: "var(--surface)" }}>
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <span className="w-1.5 h-5 rounded-full" style={{ background: "var(--gradient-pink)" }} />
-              Recent Devices
+              <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-orange)" }} />
+              Latest Activity
             </h3>
             <div className="space-y-3">
               {(recentDevices ?? []).slice(0, 5).map((d) => (
-                <div key={d.id} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
+                <div key={d.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-surface-hover">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold"
                     style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}>
                     {d.platform?.charAt(0)?.toUpperCase() || "D"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{d.device_name}</p>
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {d.platform} • v{d.app_version || "—"}
+                      {d.platform} &bull; v{d.app_version || "\u2014"}
                     </p>
                   </div>
-                  <span className={`badge ${!d.is_banned ? "badge-active" : "badge-banned"}`}>
-                    {d.is_banned ? "Banned" : "Active"}
-                  </span>
+                  <span className={`status-dot ${d.realtime_online ? "status-online" : "status-offline"}`} />
                 </div>
               ))}
               {(!recentDevices || recentDevices.length === 0) && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>No devices yet</p>
+                <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>No devices yet</p>
               )}
             </div>
-          </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="card-3d-static p-5"
+          >
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+              <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-pink)" }} />
+              Upcoming Events
+            </h3>
+            <div className="space-y-3">
+              {(recentEvents ?? []).slice(0, 5).map((ev) => (
+                <div key={ev.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-surface-hover">
+                  <div className="flex -space-x-1.5">
+                    {ev.team1_logo ? <img src={ev.team1_logo} alt="" className="w-8 h-8 rounded-full border-2" style={{ borderColor: "var(--surface)" }} />
+                      : <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ background: "var(--bg-tertiary)", borderColor: "var(--surface)", color: "var(--text-muted)" }}>T1</div>}
+                    {ev.team2_logo ? <img src={ev.team2_logo} alt="" className="w-8 h-8 rounded-full border-2" style={{ borderColor: "var(--surface)" }} />
+                      : <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ background: "var(--bg-tertiary)", borderColor: "var(--surface)", color: "var(--text-muted)" }}>T2</div>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                      {ev.team1_name} vs {ev.team2_name}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      {new Date(ev.match_time).toLocaleDateString()} &bull; {ev.league}
+                    </p>
+                  </div>
+                  <span className="badge badge-active text-[10px]">Upcoming</span>
+                </div>
+              ))}
+              {(!recentEvents || recentEvents.length === 0) && (
+                <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>No upcoming events</p>
+              )}
+            </div>
+          </motion.div>
         </div>
 
-        <div className="card px-4 py-3 text-xs flex items-center gap-2" style={{ background: "var(--surface)", color: "var(--text-muted)", borderLeft: "3px solid var(--accent)" }}>
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-glow" />
-          All data from real Supabase database
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-xs"
+          style={{
+            background: "rgba(52,211,153,0.06)",
+            color: "var(--text-muted)",
+            border: "1px solid rgba(52,211,153,0.1)",
+            borderLeft: "3px solid var(--accent-green)",
+          }}
+        >
+          <span className="relative flex w-2 h-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full w-2 h-2 bg-green-400" />
+          </span>
+          All data from live Supabase database &bull; Auto-refreshes every 15s
         </div>
       </div>
     </>
