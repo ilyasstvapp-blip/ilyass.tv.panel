@@ -21,6 +21,7 @@ export interface Channel {
 export interface ChannelServer {
   url: string
   name: string
+  enabled?: boolean
 }
 
 export interface LiveEvent {
@@ -84,6 +85,17 @@ export interface DeviceSession {
   orientation: string | null
   model: string | null
   build_number: string | null
+  /* Device Intelligence fields (from Flutter upgrade) */
+  country: string | null
+  country_code: string | null
+  region: string | null
+  city: string | null
+  timezone: string | null
+  language: string | null
+  connection_type: string | null
+  isp_name: string | null
+  integrity_token: string | null
+  security_fingerprint: string | null
 }
 
 export interface DevicePresence {
@@ -103,6 +115,60 @@ export interface DeviceWithPresence extends DeviceSession {
   total_opens?: number
   last_open_at?: string
   last_seen_at?: string
+}
+
+export interface PlayerPresence {
+  id: string
+  device_id: string
+  player_state: "opened" | "playing" | "buffering" | "closed" | "heartbeat" | null
+  channel_key: string | null
+  package_name: string | null
+  started_at: string | null
+  updated_at: string
+}
+
+export interface DeviceActivityEvent {
+  id: string
+  device_id: string
+  device_name: string
+  event_type: "app_open" | "channel_enter" | "package_open" | "player_start" | "player_close" | "heartbeat"
+  metadata: Record<string, string> | null
+  created_at: string
+}
+
+export interface DeviceIntelligenceData {
+  overview: {
+    total_devices: number
+    online_devices: number
+    offline_devices: number
+    new_today: number
+    new_this_week: number
+    active_devices: number
+    watching_streams: number
+    in_player: number
+  }
+  presence_summary: {
+    online_now: number
+    recently_active: number
+    offline: number
+  }
+  activity_feed: DeviceActivityEvent[]
+  devices_by_country: { country: string; count: number; country_code: string | null }[]
+  devices_by_city: { city: string; count: number }[]
+  isp_analytics: { isp: string; count: number; online: number; offline: number }[]
+  connection_types: { type: string; count: number }[]
+  app_versions: { version: string; count: number }[]
+  player_stats: {
+    watching_now: number
+    buffering_now: number
+    opens_today: number
+    avg_session_minutes: number
+  }
+  security_summary: {
+    total_verified: number
+    total_unverified: number
+    flagged_devices: number
+  }
 }
 
 export interface DashboardAnalytics {

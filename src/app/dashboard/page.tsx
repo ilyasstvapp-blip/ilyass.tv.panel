@@ -8,7 +8,7 @@ import { useDashboardAnalytics } from "@/hooks/useAnalytics"
 import { useAllChannels } from "@/hooks/useChannels"
 import { useEvents } from "@/hooks/useEvents"
 import { useDeviceSessions } from "@/hooks/useDevices"
-import { motion } from "framer-motion"
+import { fadeInUp, staggerContainer, MotionDiv } from "prism-kit"
 
 const statConfig: Record<string, { label: string; path: string; color: string; glow: string; gradient: string; icon: string }> = {
   packages: { label: "Total Packages", path: "/dashboard/packages", color: "var(--accent-cyan)", glow: "glow-cyan", gradient: "var(--gradient-cyan)", icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
@@ -56,7 +56,7 @@ export default function DashboardOverview() {
         <Navbar />
         <div className="flex-1 p-6 space-y-6 animate-pulse" style={{ background: "var(--bg-primary)" }}>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="card-premium" style={{ height: 140 }} />)}
+            {[1, 2, 3, 4].map((i) => <div key={i} className="rounded-2xl" style={{ height: 140, background: "var(--surface)" }} />)}
           </div>
         </div>
       </>
@@ -90,27 +90,33 @@ export default function DashboardOverview() {
     <>
       <Navbar />
       <div className="flex-1 content-area space-y-6 xl:space-y-8" style={{ background: "var(--bg-primary)" }}>
-        <div>
+        <MotionDiv variants={fadeInUp} initial="hidden" animate="visible">
           <h1 className="text-2xl xl:text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
             Dashboard Overview
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             Real-time analytics from your IPTV platform
           </p>
-        </div>
+        </MotionDiv>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          {mainStats.map((s, i) => (
-            <motion.div
+        <MotionDiv
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
+        >
+          {mainStats.map((s) => (
+            <MotionDiv
               key={s.key}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+              variants={{
+                hidden: { opacity: 0, y: 24 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+              }}
               onClick={() => router.push(s.cfg.path)}
               className="relative overflow-hidden group cursor-pointer rounded-2xl p-[1px]"
               style={{ background: `linear-gradient(135deg, ${s.cfg.color}30, transparent 60%)` }}
             >
-              <div className="rounded-2xl p-5 h-full" style={{ background: "var(--surface)" }}>
+              <div className="rounded-2xl p-5 h-full" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}>
                 <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${s.cfg.glow}`} />
                 <div className="relative z-10">
                   <div className="flex items-start justify-between mb-3">
@@ -126,7 +132,7 @@ export default function DashboardOverview() {
                   </div>
                   <p className="text-2xl xl:text-3xl font-bold tracking-tight" style={{ color: s.cfg.color }}>
                     {analyticsLoading ? (
-                      <span style={{ color: s.cfg.color }}>—</span>
+                      <span style={{ color: s.cfg.color }}>&mdash;</span>
                     ) : (
                       <AnimatedCounter value={s.value} color={s.cfg.color} />
                     )}
@@ -136,41 +142,56 @@ export default function DashboardOverview() {
                   </p>
                 </div>
               </div>
-            </motion.div>
+            </MotionDiv>
           ))}
-        </div>
+        </MotionDiv>
 
         <div>
           <h2 className="text-lg font-semibold mb-4 tracking-tight" style={{ color: "var(--text-primary)" }}>
             Online Users
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
-            {presenceCards.map((s, i) => (
-              <motion.div key={s.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                className="stat-card-3d">
+          <MotionDiv
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4"
+          >
+            {presenceCards.map((s) => (
+              <MotionDiv
+                key={s.label}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+                }}
+                className="rounded-2xl p-5"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}
+              >
                 <div className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>{s.label}</div>
                 <p className="text-2xl xl:text-3xl font-bold tracking-tight" style={{ color: s.color }}>
                   {analyticsLoading ? "\u2014" : s.value.toLocaleString()}
                 </p>
-              </motion.div>
+              </MotionDiv>
             ))}
-          </div>
+          </MotionDiv>
         </div>
 
         <div>
           <h2 className="text-lg font-semibold mb-4 tracking-tight" style={{ color: "var(--text-primary)" }}>
             System Status
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {appSystems.map((sys, i) => (
-              <motion.div
+          <MotionDiv
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
+          >
+            {appSystems.map((sys) => (
+              <MotionDiv
                 key={sys.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
+                }}
                 className={`rounded-2xl p-4 flex items-center gap-3 transition-all duration-200 hover:-translate-y-0.5 ${sys.active ? sys.glow : ""}`}
                 style={{
                   background: sys.active ? `${sys.color}08` : "var(--bg-tertiary)",
@@ -190,17 +211,24 @@ export default function DashboardOverview() {
                     {sys.active ? "Active" : "Inactive"}
                   </p>
                 </div>
-              </motion.div>
+              </MotionDiv>
             ))}
-          </div>
+          </MotionDiv>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 xl:gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="card-3d-static p-5"
+        <MotionDiv
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 xl:gap-6"
+        >
+          <MotionDiv
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+            }}
+            className="rounded-2xl p-5"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}
           >
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-green)" }} />
@@ -208,7 +236,7 @@ export default function DashboardOverview() {
             </h3>
             <div className="space-y-3">
               {(recentChannels ?? []).slice(0, 5).map((ch) => (
-                <div key={ch.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-surface-hover">
+                <div key={ch.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-white/[0.02]">
                   {ch.logo ? (
                     <img src={ch.logo} alt="" className="w-9 h-9 rounded-xl object-cover" />
                   ) : (
@@ -228,13 +256,15 @@ export default function DashboardOverview() {
                 <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>No channels yet</p>
               )}
             </div>
-          </motion.div>
+          </MotionDiv>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="card-3d-static p-5"
+          <MotionDiv
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+            }}
+            className="rounded-2xl p-5"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}
           >
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-orange)" }} />
@@ -242,7 +272,7 @@ export default function DashboardOverview() {
             </h3>
             <div className="space-y-3">
               {(recentDevices ?? []).slice(0, 5).map((d) => (
-                <div key={d.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-surface-hover">
+                <div key={d.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-white/[0.02]">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold"
                     style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}>
                     {d.platform?.charAt(0)?.toUpperCase() || "D"}
@@ -260,13 +290,15 @@ export default function DashboardOverview() {
                 <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>No devices yet</p>
               )}
             </div>
-          </motion.div>
+          </MotionDiv>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="card-3d-static p-5"
+          <MotionDiv
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+            }}
+            className="rounded-2xl p-5"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}
           >
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-pink)" }} />
@@ -274,7 +306,7 @@ export default function DashboardOverview() {
             </h3>
             <div className="space-y-3">
               {(recentEvents ?? []).slice(0, 5).map((ev) => (
-                <div key={ev.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-surface-hover">
+                <div key={ev.id} className="flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-white/[0.02]">
                   <div className="flex -space-x-1.5">
                     {ev.team1_logo ? <img src={ev.team1_logo} alt="" className="w-8 h-8 rounded-full border-2" style={{ borderColor: "var(--surface)" }} />
                       : <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ background: "var(--bg-tertiary)", borderColor: "var(--surface)", color: "var(--text-muted)" }}>T1</div>}
@@ -296,8 +328,8 @@ export default function DashboardOverview() {
                 <p className="text-xs py-4 text-center" style={{ color: "var(--text-muted)" }}>No upcoming events</p>
               )}
             </div>
-          </motion.div>
-        </div>
+          </MotionDiv>
+        </MotionDiv>
 
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-xs"
           style={{

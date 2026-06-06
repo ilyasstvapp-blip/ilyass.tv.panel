@@ -39,6 +39,7 @@ export default function IPTVOrderPage() {
   }
 
   const handlePkgDragOver = (e: React.DragEvent, id: string) => {
+    if (!dragPkgId) return
     e.preventDefault()
     setDragOverPkgId(id)
   }
@@ -149,14 +150,15 @@ export default function IPTVOrderPage() {
                 <div
                   key={pkg.id}
                   className={`iptv-card ${dragPkgId === pkg.id ? "dragging" : ""} ${dragOverPkgId === pkg.id ? "drag-over" : ""}`}
+                  onDragOver={(e) => handlePkgDragOver(e, pkg.id)}
+                  onDrop={(e) => handlePkgDrop(e, pkg.id)}
+                  onDragEnd={handlePkgDragEnd}
                 >
                   <div className="iptv-card-header" onClick={() => toggleExpand(pkg.id)}>
                     <div
                       className="iptv-drag-handle"
                       draggable
                       onDragStart={(e) => { e.stopPropagation(); handlePkgDragStart(pkg.id) }}
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
-                      onDrop={(e) => { e.stopPropagation(); handlePkgDrop(e, pkg.id) }}
                       onDragEnd={handlePkgDragEnd}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -188,7 +190,7 @@ export default function IPTVOrderPage() {
                   </div>
 
                   <div className="iptv-channels-container" style={{
-                    maxHeight: isExpanded ? `${Math.min(pkgChannels.length, 20) * 48 + 8}px` : "0",
+                    maxHeight: isExpanded ? `${pkgChannels.length * 48 + 8}px` : "0",
                   }}>
                     {chLoading && isExpanded ? (
                       <div className="px-5 py-3 text-xs animate-pulse" style={{ color: "var(--text-muted)" }}>Loading channels...</div>
@@ -205,6 +207,11 @@ export default function IPTVOrderPage() {
                           onDrop={(e) => handleChDrop(e, ch.id)}
                           onDragEnd={handleChDragEnd}
                         >
+                          <div className="iptv-drag-handle" style={{ cursor: "grab", padding: "4px", opacity: 0.4, display: "flex", alignItems: "center" }}>
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm8 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm8 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM8 23a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm8 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+                            </svg>
+                          </div>
                           {ch.logo
                             ? <img src={ch.logo} alt="" className="iptv-channel-logo" />
                             : <div className="iptv-channel-logo flex items-center justify-center text-[9px] font-bold"

@@ -6,6 +6,7 @@ import { useLocale } from "@/contexts/LocaleContext"
 import { useTranslations } from "@/i18n/useTranslations"
 import { locales, localeNames, type Locale } from "@/i18n/config"
 import { motion, AnimatePresence } from "framer-motion"
+import { buttonTap } from "prism-kit"
 
 const navLinks = [
   { key: "nav.home", href: "#hero" },
@@ -50,19 +51,21 @@ export default function Navbar() {
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
       style={{
         background: scrolled
-          ? "rgba(255,255,255,0.8)"
-          : "transparent",
-        backdropFilter: scrolled ? "blur(24px)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(24px)" : "none",
-        borderBottom: scrolled
-          ? "1px solid rgba(37,99,235,0.08)"
-          : "1px solid transparent",
-        boxShadow: scrolled ? "var(--shadow-md)" : "none",
+          ? "rgba(255,255,255,0.85)"
+          : "rgba(255,255,255,0.72)",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
+        borderBottom: "1px solid rgba(37,99,235,0.08)",
+        boxShadow: scrolled ? "0 4px 30px rgba(0,0,0,0.06)" : "0 1px 0 rgba(0,0,0,0.03)",
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <button onClick={handleLogoClick} className="flex items-center gap-2.5 cursor-pointer group">
+          <motion.button
+            whileTap={buttonTap}
+            onClick={handleLogoClick}
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm transition-all duration-300 group-hover:shadow-lg group-hover:scale-105"
               style={{ background: "var(--accent-gradient)" }}>
               IT
@@ -70,7 +73,7 @@ export default function Navbar() {
             <span className="text-lg font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
               ILYASS <span style={{ color: "var(--accent)" }}>TV</span>
             </span>
-          </button>
+          </motion.button>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
@@ -78,31 +81,34 @@ export default function Navbar() {
               <a
                 key={link.key}
                 href={link.href}
-                className="relative text-sm font-medium transition-colors duration-200 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-accent after:transition-all after:duration-300 hover:after:w-full"
+                className="relative text-sm font-medium transition-colors duration-200"
                 style={{ color: "var(--text-secondary)" }}
                 onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent)"}
                 onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-secondary)"}
               >
                 {t(link.key as any)}
+                <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 transition-all duration-300 group-hover:w-full"
+                  style={{ background: "var(--accent)" }} />
               </a>
             ))}
 
             {/* Language Switcher */}
             <div className="relative">
-              <button
+              <motion.button
+                whileTap={buttonTap}
                 onClick={() => setLangOpen(!langOpen)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:shadow-sm"
                 style={{
-                  background: "var(--bg-tertiary)",
+                  background: "rgba(37,99,235,0.06)",
                   color: "var(--text-secondary)",
-                  border: "1px solid var(--border-light)",
+                  border: "1px solid rgba(37,99,235,0.1)",
                 }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>{locale.toUpperCase()}</span>
-              </button>
+              </motion.button>
 
               <AnimatePresence>
                 {langOpen && (
@@ -115,8 +121,9 @@ export default function Navbar() {
                       transition={{ duration: 0.15 }}
                       className="absolute top-full mt-2 right-0 z-20 min-w-[160px] rounded-xl overflow-hidden shadow-lg border"
                       style={{
-                        background: "var(--surface)",
-                        borderColor: "var(--border)",
+                        background: "rgba(255,255,255,0.9)",
+                        backdropFilter: "blur(24px)",
+                        borderColor: "rgba(37,99,235,0.1)",
                       }}
                     >
                       {locales.map((l) => (
@@ -126,7 +133,7 @@ export default function Navbar() {
                           className="w-full text-left px-4 py-3 text-sm transition-all duration-150 flex items-center gap-2.5 hover:pl-5"
                           style={{
                             color: l === locale ? "var(--accent)" : "var(--text-primary)",
-                            background: l === locale ? "var(--accent-subtle)" : "transparent",
+                            background: l === locale ? "rgba(37,99,235,0.06)" : "transparent",
                           }}
                         >
                           {l === locale && (
@@ -145,10 +152,11 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button
+          <motion.button
+            whileTap={buttonTap}
             onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-2.5 rounded-xl transition-all duration-200 hover:bg-gray-100"
-            style={{ color: "var(--text-primary)" }}
+            className="md:hidden p-2.5 rounded-xl transition-all duration-200"
+            style={{ color: "var(--text-primary)", background: "rgba(37,99,235,0.04)" }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {menuOpen ? (
@@ -157,7 +165,7 @@ export default function Navbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               )}
             </svg>
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -171,10 +179,10 @@ export default function Navbar() {
             transition={{ duration: 0.25 }}
             className="md:hidden overflow-hidden"
             style={{
-              background: "rgba(255,255,255,0.95)",
+              background: "rgba(255,255,255,0.92)",
               backdropFilter: "blur(24px)",
               WebkitBackdropFilter: "blur(24px)",
-              borderTop: "1px solid var(--border-light)",
+              borderTop: "1px solid rgba(37,99,235,0.06)",
             }}
           >
             <div className="px-4 py-5 space-y-1">
@@ -185,11 +193,13 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   className="block px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 hover:pl-5"
                   style={{ color: "var(--text-secondary)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(37,99,235,0.04)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   {t(link.key as any)}
                 </a>
               ))}
-              <div className="border-t pt-4 mt-4" style={{ borderColor: "var(--border-light)" }}>
+              <div className="border-t pt-4 mt-4" style={{ borderColor: "rgba(37,99,235,0.06)" }}>
                 <p className="text-xs font-medium mb-3 px-4" style={{ color: "var(--text-muted)" }}>Language</p>
                 <div className="space-y-1">
                   {locales.map((l) => (
@@ -199,7 +209,7 @@ export default function Navbar() {
                       className="w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-150"
                       style={{
                         color: l === locale ? "var(--accent)" : "var(--text-primary)",
-                        background: l === locale ? "var(--accent-subtle)" : "transparent",
+                        background: l === locale ? "rgba(37,99,235,0.06)" : "transparent",
                       }}
                     >
                       {localeNames[l]}

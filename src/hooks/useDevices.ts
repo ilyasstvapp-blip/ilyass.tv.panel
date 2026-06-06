@@ -16,6 +16,8 @@ export function useDeviceSessions(options?: {
 }) {
   const [data, setData] = useState<DeviceWithPresence[]>([])
   const [count, setCount] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
+  const [displayedCount, setDisplayedCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -27,6 +29,8 @@ export function useDeviceSessions(options?: {
       const result = await fetchDeviceSessions(options)
       setData(result.data)
       setCount(result.count)
+      setTotalCount(result.totalCount)
+      setDisplayedCount(result.displayedCount)
     } catch (e) {
       if (!isPoll) setError(e instanceof Error ? e.message : "Failed to load device sessions")
     } finally {
@@ -45,5 +49,5 @@ export function useDeviceSessions(options?: {
     }
   }, [load, options?.pollInterval])
 
-  return { data, count, loading, error, refetch: () => load() }
+  return { data, count, totalCount, displayedCount, loading, error, refetch: () => load() }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Fragment } from "react"
 import Navbar from "@/components/dashboard/Navbar"
 import { useAuth } from "@/hooks/useAuth"
 import { useChannels, useChannelPackages } from "@/hooks/useChannels"
@@ -17,12 +17,13 @@ export default function ChannelsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [expandedServers, setExpandedServers] = useState<string | null>(null)
   const [formPackage, setFormPackage] = useState("")
   const [formKey, setFormKey] = useState("")
   const [formName, setFormName] = useState("")
   const [formLogo, setFormLogo] = useState("")
   const [formOrder, setFormOrder] = useState(0)
-  const [formServers, setFormServers] = useState<{ url: string; name: string }[]>([])
+  const [formServers, setFormServers] = useState<{ url: string; name: string; enabled?: boolean }[]>([])
   const [serverInputUrl, setServerInputUrl] = useState("")
   const [serverInputName, setServerInputName] = useState("")
   const [keyManualOverride, setKeyManualOverride] = useState(false)
@@ -63,7 +64,7 @@ export default function ChannelsPage() {
 
   const addServer = () => {
     if (!serverInputUrl.trim()) return
-    setFormServers([...formServers, { url: serverInputUrl.trim(), name: serverInputName.trim() || `Server ${formServers.length + 1}` }])
+    setFormServers([...formServers, { url: serverInputUrl.trim(), name: serverInputName.trim() || `Server ${formServers.length + 1}`, enabled: true }])
     setServerInputUrl(""); setServerInputName("")
   }
 
@@ -95,6 +96,20 @@ export default function ChannelsPage() {
 
   const handleToggleActive = async (id: string, current: boolean) => {
     try { await updateMut.mutate(id, { is_active: !current }); refetch() } catch {}
+  }
+
+  const handleToggleServer = async (chId: string, srvIdx: number, currentEnabled: boolean) => {
+    const ch = channels.find(c => c.id === chId)
+    if (!ch || !ch.servers) return
+    const servers = ch.servers.map((s, i) => i === srvIdx ? { ...s, enabled: !currentEnabled } : s)
+    try { await updateMut.mutate(chId, { servers }); refetch() } catch {}
+  }
+
+  const handleRemoveServer = async (chId: string, srvIdx: number) => {
+    const ch = channels.find(c => c.id === chId)
+    if (!ch || !ch.servers) return
+    const servers = ch.servers.filter((_, i) => i !== srvIdx)
+    try { await updateMut.mutate(chId, { servers }); refetch() } catch {}
   }
 
   const handleDelete = async () => {
@@ -241,11 +256,12 @@ export default function ChannelsPage() {
                     <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm"
                       style={{ background: "var(--bg-tertiary)" }}>
                       <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-                        style={{ background: `${"var(--accent-cyan)"}15`, color: "var(--accent-cyan)" }}>{i + 1}</span>
+                        style={{ background: `${srv.enabled !== false ? "var(--accent-cyan)" : "var(--error)"}15`, color: srv.enabled !== false ? "var(--accent-cyan)" : "var(--error)" }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{srv.name}</p>
                         <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{srv.url}</p>
                       </div>
+                      <span className={`status-dot ${srv.enabled !== false ? "status-online" : "status-offline"}`} />
                       <button onClick={() => removeServer(i)} className="text-xs font-medium transition-colors hover:opacity-80"
                         style={{ color: "var(--error)" }}>Remove</button>
                     </div>
@@ -302,77 +318,103 @@ export default function ChannelsPage() {
                 </tr></thead>
                 <tbody>
                   {channels.map((ch, idx) => (
-                    <motion.tr key={ch.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.02 }}
-                      className="table-row">
-                      <td>
-                        <code className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}>
-                          {ch.channel_key}
-                        </code>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-3">
-                          {ch.logo
-                            ? <img src={ch.logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                            : <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>TV</div>}
-                          <span className="font-medium" style={{ color: "var(--text-primary)" }}>{ch.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="text-xs px-2 py-1 rounded-md" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
-                          {packages.find(p => p.id === ch.package_id)?.name ?? ch.package_id.substring(0, 8)}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex -space-x-1.5">
-                          {(ch.servers ?? []).slice(0, 3).map((srv, i) => (
-                            <span key={i} className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2"
-                              style={{ background: "var(--bg-tertiary)", borderColor: "var(--surface)", color: "var(--accent)" }}
-                              title={`${srv.name}: ${srv.url}`}>
-                              {i + 1}
-                            </span>
-                          ))}
-                          {(ch.servers?.length ?? 0) > 3 && (
-                            <span className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2"
-                              style={{ background: "var(--bg-tertiary)", borderColor: "var(--surface)", color: "var(--text-muted)" }}>
-                              +{ch.servers!.length - 3}
-                            </span>
-                          )}
-                          {(!ch.servers || ch.servers.length === 0) && (
-                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>None</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="badge text-[10px]" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
-                          {(ch as any).sort_order ?? idx}
-                        </span>
-                      </td>
-                      <td>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" checked={ch.is_active} onChange={() => handleToggleActive(ch.id, ch.is_active)}
-                            className="sr-only peer" />
-                          <div className="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"
-                            style={{ background: ch.is_active ? "var(--accent-green)" : "var(--bg-tertiary)" }} />
-                        </label>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleEdit(ch)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                            style={{ background: "var(--bg-tertiary)", color: "var(--accent)", border: "1px solid var(--border)" }}>
-                            Edit
+                    <Fragment key={ch.id}>
+                      <motion.tr
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.02 }}
+                        className="table-row">
+                        <td>
+                          <code className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}>
+                            {ch.channel_key}
+                          </code>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            {ch.logo
+                              ? <img src={ch.logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                              : <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>TV</div>}
+                            <span className="font-medium" style={{ color: "var(--text-primary)" }}>{ch.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="text-xs px-2 py-1 rounded-md" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
+                            {packages.find(p => p.id === ch.package_id)?.name ?? ch.package_id.substring(0, 8)}
+                          </span>
+                        </td>
+                        <td>
+                          <button onClick={() => setExpandedServers(expandedServers === ch.id ? null : ch.id)}
+                            className="flex items-center gap-1.5 text-xs font-medium transition-colors hover:opacity-80"
+                            style={{ color: "var(--accent)" }}>
+                            {(ch.servers?.length ?? 0)} server{(ch.servers?.length ?? 0) !== 1 ? "s" : ""}
+                            <svg className={`w-3 h-3 transition-transform ${expandedServers === ch.id ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </button>
-                          <button onClick={() => setDeleteId(ch.id)} disabled={deleteMut.isLoading}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                            style={{ background: "rgba(248,113,113,0.1)", color: "var(--error)", border: "1px solid rgba(248,113,113,0.2)" }}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
+                        </td>
+                        <td>
+                          <span className="badge text-[10px]" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
+                            {(ch as any).sort_order ?? idx}
+                          </span>
+                        </td>
+                        <td>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={ch.is_active} onChange={() => handleToggleActive(ch.id, ch.is_active)}
+                              className="sr-only peer" />
+                            <div className="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"
+                              style={{ background: ch.is_active ? "var(--accent-green)" : "var(--bg-tertiary)" }} />
+                          </label>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleEdit(ch)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                              style={{ background: "var(--bg-tertiary)", color: "var(--accent)", border: "1px solid var(--border)" }}>
+                              Edit
+                            </button>
+                            <button onClick={() => setDeleteId(ch.id)} disabled={deleteMut.isLoading}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                              style={{ background: "rgba(248,113,113,0.1)", color: "var(--error)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                      {expandedServers === ch.id && (
+                        <tr>
+                          <td colSpan={7} className="p-0">
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                              className="p-4 space-y-2" style={{ background: "var(--bg-tertiary)" }}>
+                              <p className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>Stream Servers</p>
+                              {(ch.servers ?? []).length === 0 ? (
+                                <p className="text-xs" style={{ color: "var(--text-muted)" }}>No servers configured</p>
+                              ) : (
+                                (ch.servers ?? []).map((srv, si) => (
+                                  <div key={si} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm"
+                                    style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                                    <span className={`status-dot ${srv.enabled !== false ? "status-online" : "status-offline"}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{srv.name}</p>
+                                      <p className="text-xs truncate font-mono" style={{ color: "var(--text-muted)" }}>{srv.url}</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                      <input type="checkbox" checked={srv.enabled !== false}
+                                        onChange={() => handleToggleServer(ch.id, si, srv.enabled !== false)}
+                                        className="sr-only peer" />
+                                      <div className="w-8 h-4 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[0.5px] after:left-[0.5px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"
+                                        style={{ background: srv.enabled !== false ? "var(--accent-green)" : "var(--bg-tertiary)" }} />
+                                    </label>
+                                    <button onClick={() => handleRemoveServer(ch.id, si)}
+                                      className="text-xs font-medium transition-colors hover:opacity-80"
+                                      style={{ color: "var(--error)" }}>Remove</button>
+                                  </div>
+                                ))
+                              )}
+                            </motion.div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

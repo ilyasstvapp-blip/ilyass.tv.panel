@@ -8,31 +8,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 
-import { TIMEZONE_OPTIONS } from "@/lib/football/timezone"
-import { DEFAULT_LEAGUES } from "@/lib/football/api-sports"
-import { saveFootballApi, type FootballApi } from "@/lib/services/settings"
+
 
 interface AppCard {
   id: string
   name: string
   platform: string
   version: string
-  apkUrl: string
-  apkFile: string | null
-  banner: string
+  image: string
   screenshots: string[]
-  changelog: string
   description: string
 }
 
-interface DownloaderCode {
-  id: string
-  code: string
-  label: string
-}
-
 const platformOptions = ["Android Mobile", "Android TV", "Emulator"]
-const downloaderPlatforms = ["Downloader App"]
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -44,44 +32,27 @@ export default function SettingsPage() {
   const [editCardId, setEditCardId] = useState<string | null>(null)
   const [screenshotInput, setScreenshotInput] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm] = useState({ name: "", platform: "Android Mobile", version: "", apkUrl: "", apkFile: null as string | null, description: "", changelog: "", banner: "" })
-  const [downloaderCodes, setDownloaderCodes] = useState<DownloaderCode[]>([])
+  const [addForm, setAddForm] = useState({ name: "", platform: "Android Mobile", version: "", image: "", description: "" })
+  const [features, setFeatures] = useState<{ id: string; title: string; description: string }[]>([])
+  const [footerDesc, setFooterDesc] = useState("")
+  const [footerEmail, setFooterEmail] = useState("")
+  const [footerTelegram, setFooterTelegram] = useState("")
+  const [footerWhatsapp, setFooterWhatsapp] = useState("")
+  const [footerWebsite, setFooterWebsite] = useState("")
   const [saving, setSaving] = useState(false)
+  const [savingFooter, setSavingFooter] = useState(false)
   const [dataLoaded, setDataLoaded] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
     settings,
-    timezone: ctxTimezone,
-    apiSportsKey: ctxApiKey,
-    enabledLeagues: ctxLeagues,
-    footballApis,
     loading: ctxLoading,
     saveSetting,
-    refreshApis,
   } = useSettings()
 
-  // Football API management
-  const [showApiModal, setShowApiModal] = useState(false)
-  const [editApi, setEditApi] = useState<FootballApi | null>(null)
-  const [apiForm, setApiForm] = useState({ api_name: "", api_url: "", api_type: "direct" })
-  const [savingApi, setSavingApi] = useState(false)
-
-  // API-Sports integration
-  const [apiSportsKey, setApiSportsKey] = useState("")
-  const [savingApiKey, setSavingApiKey] = useState(false)
-  const [apiKeyFeedback, setApiKeyFeedback] = useState<"success" | "error" | null>(null)
-  const [enabledLeagues, setEnabledLeagues] = useState<string[]>(DEFAULT_LEAGUES.map(l => l.name))
-  const [savingLeagues, setSavingLeagues] = useState(false)
-
-  // Accordion
   const [accordionOpen, setAccordionOpen] = useState<Record<string, boolean>>({})
   const toggleAccordion = (key: string) => setAccordionOpen(prev => ({ ...prev, [key]: !prev[key] }))
 
-  // Timezone
-  const [selectedTimezone, setSelectedTimezone] = useState("browser")
-  const [savingTz, setSavingTz] = useState(false)
-  const [tzFeedback, setTzFeedback] = useState<"success" | "error" | null>(null)
   const [apiFeedback, setApiFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -98,17 +69,18 @@ export default function SettingsPage() {
         setHeroBanner(h.banner || "")
       }
       if (s.app_cards) setAppCards(s.app_cards as AppCard[])
-      if (s.downloader_codes) setDownloaderCodes(s.downloader_codes as DownloaderCode[])
-      else setDownloaderCodes([
-        { id: "1", code: "", label: "Main Downloader Code" },
-        { id: "2", code: "", label: "Backup Downloader Code" },
-      ])
-      if (ctxTimezone) setSelectedTimezone(ctxTimezone)
-      if (ctxApiKey) setApiSportsKey(ctxApiKey)
-      if (ctxLeagues.length > 0) setEnabledLeagues(ctxLeagues)
+      if (s.features) setFeatures(s.features as { id: string; title: string; description: string }[])
+      if (s.footer) {
+        const f = s.footer as Record<string, unknown>
+        setFooterDesc((f.description as string) || "")
+        setFooterEmail((f.email as string) || "")
+        setFooterTelegram(((f.social as Record<string, string>)?.telegram) || "")
+        setFooterWhatsapp(((f.social as Record<string, string>)?.whatsapp) || "")
+        setFooterWebsite(((f.social as Record<string, string>)?.website) || "")
+      }
       setDataLoaded(true)
     }
-  }, [ctxLoading, settings, ctxTimezone, ctxApiKey, ctxLeagues])
+  }, [ctxLoading, settings])
 
   const saveHomepage = async () => {
     setSaving(true)
@@ -117,12 +89,21 @@ export default function SettingsPage() {
     } catch {} finally { setSaving(false) }
   }
 
-  // Auto-save app cards + downloader codes with debounce
-  const scheduleAutoSave = useCallback((apps: AppCard[], codes: DownloaderCode[]) => {
+  const saveFooter = async () => {
+    setSavingFooter(true)
+    try {
+      await saveSetting("footer", {
+        description: footerDesc,
+        email: footerEmail,
+        social: { telegram: footerTelegram, whatsapp: footerWhatsapp, website: footerWebsite },
+      })
+    } catch {} finally { setSavingFooter(false) }
+  }
+
+  const scheduleAutoSave = useCallback((apps: AppCard[]) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       saveSetting("app_cards", apps)
-      saveSetting("downloader_codes", codes)
     }, 1500)
   }, [saveSetting])
 
@@ -139,88 +120,23 @@ export default function SettingsPage() {
     feedbackTimer.current = setTimeout(() => setApiFeedback(null), 3000)
   }
 
-  const saveTimezone = async () => {
-    setSavingTz(true)
-    setTzFeedback(null)
-    const ok = await saveSetting("timezone", selectedTimezone)
-    setTzFeedback(ok ? "success" : "error")
-    setSavingTz(false)
+  const addFeature = () => {
+    const newFeature = { id: crypto.randomUUID(), title: "", description: "" }
+    const next = [...features, newFeature]
+    setFeatures(next)
+    saveSetting("features", next)
   }
 
-  // ── API-Sports Integration ──
-  const saveApiSportsKey = async () => {
-    setSavingApiKey(true)
-    setApiKeyFeedback(null)
-    const ok = await saveSetting("api_sports_key", apiSportsKey)
-    setApiKeyFeedback(ok ? "success" : "error")
-    setSavingApiKey(false)
+  const updateFeature = (id: string, updates: { title?: string; description?: string }) => {
+    const next = features.map(f => f.id === id ? { ...f, ...updates } : f)
+    setFeatures(next)
+    saveSetting("features", next)
   }
 
-  const saveEnabledLeagues = async (leagues: string[]) => {
-    setSavingLeagues(true)
-    await saveSetting("enabled_leagues", leagues)
-    setSavingLeagues(false)
-  }
-
-  const toggleLeague = (name: string) => {
-    const next = enabledLeagues.includes(name)
-      ? enabledLeagues.filter(l => l !== name)
-      : [...enabledLeagues, name]
-    setEnabledLeagues(next)
-    saveEnabledLeagues(next)
-  }
-
-  const openAddApi = () => {
-    setEditApi(null)
-    setApiForm({ api_name: "", api_url: "", api_type: "direct" })
-    setShowApiModal(true)
-  }
-
-  const openEditApi = (api: FootballApi) => {
-    setEditApi(api)
-    setApiForm({ api_name: api.api_name, api_url: api.api_url, api_type: api.api_type })
-    setShowApiModal(true)
-  }
-
-  const saveApi = async () => {
-    if (!apiForm.api_name || !apiForm.api_url) return
-    setSavingApi(true)
-    try {
-      const action = editApi ? "update" : "create"
-      await saveFootballApi(action, { id: editApi?.id, ...apiForm })
-      setShowApiModal(false)
-      showFeedback("success", editApi ? "API updated successfully" : "API created successfully")
-      await refreshApis()
-    } catch (e) {
-      showFeedback("error", e instanceof Error ? e.message : "Failed to save API")
-    } finally { setSavingApi(false) }
-  }
-
-  const activateApi = async (id: string) => {
-    try {
-      await saveFootballApi("activate", { id })
-      showFeedback("success", "API activated")
-      await refreshApis()
-    } catch (e) {
-      showFeedback("error", e instanceof Error ? e.message : "Failed to activate")
-    }
-  }
-
-  const deactivateApi = async (id: string) => {
-    try {
-      await saveFootballApi("deactivate", { id })
-      await refreshApis()
-    } catch {}
-  }
-
-  const deleteApi = async (id: string) => {
-    try {
-      await saveFootballApi("delete", { id })
-      showFeedback("success", "API deleted")
-      await refreshApis()
-    } catch (e) {
-      showFeedback("error", e instanceof Error ? e.message : "Failed to delete")
-    }
+  const removeFeature = (id: string) => {
+    const next = features.filter(f => f.id !== id)
+    setFeatures(next)
+    saveSetting("features", next)
   }
 
   if (!mounted || authLoading || !dataLoaded) {
@@ -236,7 +152,7 @@ export default function SettingsPage() {
   if (!user) return null
 
   const openAddModal = () => {
-    setAddForm({ name: "", platform: "Android Mobile", version: "", apkUrl: "", apkFile: null, description: "", changelog: "", banner: "" })
+    setAddForm({ name: "", platform: "Android Mobile", version: "", image: "", description: "" })
     setShowAddModal(true)
   }
 
@@ -246,31 +162,28 @@ export default function SettingsPage() {
       name: addForm.name,
       platform: addForm.platform,
       version: addForm.version,
-      apkUrl: addForm.apkUrl,
-      apkFile: addForm.apkFile,
-      banner: addForm.banner,
+      image: addForm.image,
       screenshots: [],
-      changelog: addForm.changelog,
       description: addForm.description,
     }
     const apps = [...appCards, card]
     setAppCards(apps)
     setEditCardId(card.id)
     setShowAddModal(false)
-    scheduleAutoSave(apps, downloaderCodes)
+    scheduleAutoSave(apps)
   }
 
   const updateCard = (id: string, updates: Partial<AppCard>) => {
     const apps = appCards.map(c => c.id === id ? { ...c, ...updates } : c)
     setAppCards(apps)
-    scheduleAutoSave(apps, downloaderCodes)
+    scheduleAutoSave(apps)
   }
 
   const removeCard = (id: string) => {
     const apps = appCards.filter(c => c.id !== id)
     setAppCards(apps)
     if (editCardId === id) setEditCardId(null)
-    scheduleAutoSave(apps, downloaderCodes)
+    scheduleAutoSave(apps)
   }
 
   const addScreenshot = (id: string) => {
@@ -280,7 +193,7 @@ export default function SettingsPage() {
     const apps = appCards.map(c => c.id === id ? { ...c, screenshots: [...c.screenshots, screenshotInput.trim()] } : c)
     setAppCards(apps)
     setScreenshotInput("")
-    scheduleAutoSave(apps, downloaderCodes)
+    scheduleAutoSave(apps)
   }
 
   const removeScreenshot = (id: string, idx: number) => {
@@ -288,25 +201,7 @@ export default function SettingsPage() {
     if (!card) return
     const apps = appCards.map(c => c.id === id ? { ...c, screenshots: c.screenshots.filter((_, i) => i !== idx) } : c)
     setAppCards(apps)
-    scheduleAutoSave(apps, downloaderCodes)
-  }
-
-  const updateDownloaderCode = (id: string, updates: Partial<DownloaderCode>) => {
-    const codes = downloaderCodes.map(c => c.id === id ? { ...c, ...updates } : c)
-    setDownloaderCodes(codes)
-    scheduleAutoSave(appCards, codes)
-  }
-
-  const addDownloaderCode = () => {
-    const codes = [...downloaderCodes, { id: crypto.randomUUID(), code: "", label: `Code ${downloaderCodes.length + 1}` }]
-    setDownloaderCodes(codes)
-    scheduleAutoSave(appCards, codes)
-  }
-
-  const removeDownloaderCode = (id: string) => {
-    const codes = downloaderCodes.filter(c => c.id !== id)
-    setDownloaderCodes(codes)
-    scheduleAutoSave(appCards, codes)
+    scheduleAutoSave(apps)
   }
 
   const platformIcon = (platform: string) => {
@@ -314,7 +209,6 @@ export default function SettingsPage() {
       "Android Mobile": "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
       "Android TV": "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
       "Emulator": "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
-      "Downloader App": "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
     }
     return icons[platform] || icons["Android Mobile"]
   }
@@ -409,7 +303,7 @@ export default function SettingsPage() {
           <div className="accordion-body" style={{ maxHeight: accordionOpen["apps"] ? "6000px" : "0" }}>
             <div className="accordion-content">
               <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                Android Mobile, Android TV, and Emulator apps with APK upload, versioning, changelogs, and screenshots
+                Android Mobile, Android TV, and Emulator apps with versioning, screenshots, and descriptions
               </p>
 
           {appCards.length === 0 ? (
@@ -474,28 +368,12 @@ export default function SettingsPage() {
                               placeholder="e.g. 2.1.0" className="w-full" />
                           </div>
                           <div>
-                            <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>APK File Upload</label>
-                            <div className="flex items-center gap-2">
-                              <input type="file" accept=".apk" className="w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium"
-                                style={{ color: "var(--text-muted)" }}
-                                onChange={e => {
-                                  const file = e.target.files?.[0]
-                                  if (file) updateCard(card.id, { apkFile: file.name, apkUrl: "" })
-                                }} />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>APK URL (external)</label>
-                            <input type="url" value={card.apkUrl} onChange={e => updateCard(card.id, { apkUrl: e.target.value })}
-                              placeholder="https://example.com/app.apk" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Banner / Image URL</label>
-                            <input type="url" value={card.banner} onChange={e => updateCard(card.id, { banner: e.target.value })}
-                              placeholder="https://example.com/banner.png" className="w-full" />
-                            {card.banner && (
+                            <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Image URL</label>
+                            <input type="url" value={card.image} onChange={e => updateCard(card.id, { image: e.target.value })}
+                              placeholder="https://example.com/app-icon.png" className="w-full" />
+                            {card.image && (
                               <div className="mt-1 rounded-lg overflow-hidden h-16">
-                                <img src={card.banner} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = "none")} />
+                                <img src={card.image} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = "none")} />
                               </div>
                             )}
                           </div>
@@ -504,11 +382,6 @@ export default function SettingsPage() {
                           <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Description</label>
                           <textarea rows={2} value={card.description} onChange={e => updateCard(card.id, { description: e.target.value })}
                             placeholder="Brief description of this platform app..." className="w-full resize-none" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Changelog</label>
-                          <textarea rows={2} value={card.changelog} onChange={e => updateCard(card.id, { changelog: e.target.value })}
-                            placeholder="What's new in this version..." className="w-full resize-none" />
                         </div>
                         <div>
                           <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Screenshots</label>
@@ -544,306 +417,116 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Downloader Codes — separate section, no APK uploads */}
+        {/* ── Footer ── */}
         <div className="accordion-section">
-          <div role="button" tabIndex={0} className="accordion-header" onClick={() => toggleAccordion("downloader")} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAccordion("downloader") } }}>
-            <div className="flex items-center gap-2">
-              <span className="w-1 h-5 rounded-full shrink-0" style={{ background: "var(--gradient-orange)" }} />
-              Downloader Codes
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); addDownloaderCode() }}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-                Add Code
-              </Button>
-              <svg className={`accordion-chevron ${accordionOpen["downloader"] ? "open" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-          <div className="accordion-body" style={{ maxHeight: accordionOpen["downloader"] ? "2000px" : "0" }}>
-            <div className="accordion-content">
-              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                Downloader codes allow users to download your app directly. Codes only — no APK uploads.
-              </p>
-
-          {downloaderCodes.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No downloader codes yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {downloaderCodes.map(code => (
-                <motion.div key={code.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="rounded-xl p-4 flex items-center gap-3"
-                  style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border)" }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: "rgba(251,191,36,0.1)" }}>
-                    <svg className="w-5 h-5" style={{ color: "var(--accent-orange)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <input type="text" value={code.label} onChange={e => updateDownloaderCode(code.id, { label: e.target.value })}
-                      placeholder="Code label" className="text-xs font-medium w-full mb-1 bg-transparent outline-none"
-                      style={{ color: "var(--text-primary)" }} />
-                    <input type="text" value={code.code} onChange={e => updateDownloaderCode(code.id, { code: e.target.value })}
-                      placeholder="e.g. 123456" className="w-full text-xs bg-transparent outline-none font-mono"
-                      style={{ color: "var(--accent-orange)" }} />
-                  </div>
-                  <button onClick={() => removeDownloaderCode(code.id)}
-                    className="text-xs font-medium transition-colors shrink-0"
-                    style={{ color: "var(--text-muted)" }}>Remove</button>
-                </motion.div>
-              ))}
-            </div>
-          )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Timezone Settings ── */}
-        <div className="accordion-section">
-          <button className="accordion-header" onClick={() => toggleAccordion("timezone")}>
+          <button className="accordion-header" onClick={() => toggleAccordion("footer")}>
             <div className="flex items-center gap-2">
               <span className="w-1 h-5 rounded-full shrink-0" style={{ background: "var(--gradient-cyan)" }} />
-              Timezone Settings
+              Footer Content
             </div>
-            <svg className={`accordion-chevron ${accordionOpen["timezone"] ? "open" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`accordion-chevron ${accordionOpen["footer"] ? "open" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <div className="accordion-body" style={{ maxHeight: accordionOpen["timezone"] ? "2000px" : "0" }}>
+          <div className="accordion-body" style={{ maxHeight: accordionOpen["footer"] ? "2000px" : "0" }}>
             <div className="accordion-content">
               <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-            Choose a global timezone for displaying match times across the dashboard
-          </p>
-          <div className="flex items-end gap-4 max-w-md">
-            <div className="flex-1">
-              <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Display Timezone</label>
-              <select value={selectedTimezone} onChange={e => setSelectedTimezone(e.target.value)}
-                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {TIMEZONE_OPTIONS.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={saveTimezone} disabled={savingTz}>{savingTz ? "Saving..." : "Save Timezone"}</Button>
-              {tzFeedback === "success" && (
-                <span className="text-xs font-medium animate-fade-in" style={{ color: "var(--accent-green)" }}>{"\u2713"} Saved</span>
-              )}
-              {tzFeedback === "error" && (
-                <span className="text-xs font-medium animate-fade-in" style={{ color: "var(--error)" }}>Failed to save</span>
-              )}
-            </div>
+                Customize the footer on your public website
+              </p>
+              <div className="space-y-4 max-w-lg">
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Description</label>
+                  <textarea rows={2} value={footerDesc} onChange={e => setFooterDesc(e.target.value)}
+                    placeholder="Describe your IPTV service..." className="w-full resize-none" />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Contact Email</label>
+                  <input type="email" value={footerEmail} onChange={e => setFooterEmail(e.target.value)}
+                    placeholder="contact@example.com" className="w-full" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Telegram URL</label>
+                    <input type="url" value={footerTelegram} onChange={e => setFooterTelegram(e.target.value)}
+                      placeholder="https://t.me/..." className="w-full" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>WhatsApp URL</label>
+                    <input type="url" value={footerWhatsapp} onChange={e => setFooterWhatsapp(e.target.value)}
+                      placeholder="https://wa.me/..." className="w-full" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Website URL</label>
+                    <input type="url" value={footerWebsite} onChange={e => setFooterWebsite(e.target.value)}
+                      placeholder="https://..." className="w-full" />
+                  </div>
+                </div>
+                <Button onClick={saveFooter} disabled={savingFooter}>{savingFooter ? "Saving..." : "Save Footer"}</Button>
+              </div>
             </div>
           </div>
         </div>
-        </div>
 
-        {/* ── API-Sports Integration ── */}
+        {/* ── Features ── */}
         <div className="accordion-section">
-          <button className="accordion-header" onClick={() => toggleAccordion("apisports")}>
-            <div className="flex items-center gap-2">
-              <span className="w-1 h-5 rounded-full shrink-0" style={{ background: "var(--gradient-cyan)" }} />
-              API-Sports Integration
-            </div>
-            <svg className={`accordion-chevron ${accordionOpen["apisports"] ? "open" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <div className="accordion-body" style={{ maxHeight: accordionOpen["apisports"] ? "3000px" : "0" }}>
-            <div className="accordion-content">
-              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                Connect your API-Football account from API-Sports. Get your key at https://api-sports.io
-              </p>
-
-          <div className="max-w-md space-y-5">
-            {/* API Key */}
-            <div>
-              <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>API-Sports API Key</label>
-              <div className="flex gap-2">
-                <input type="password" value={apiSportsKey} onChange={e => setApiSportsKey(e.target.value)}
-                  placeholder="x-apisports-key" className="flex-1 font-mono text-xs" />
-                <Button onClick={saveApiSportsKey} disabled={savingApiKey || !apiSportsKey}>
-                  {savingApiKey ? "Saving..." : "Save Key"}
-                </Button>
-              </div>
-              {apiKeyFeedback === "success" && (
-                <span className="text-xs font-medium mt-1 block animate-fade-in" style={{ color: "var(--accent-green)" }}>
-                  {"\u2713"} Key saved
-                </span>
-              )}
-              {apiKeyFeedback === "error" && (
-                <span className="text-xs font-medium mt-1 block animate-fade-in" style={{ color: "var(--error)" }}>
-                  Failed to save key
-                </span>
-              )}
-            </div>
-
-            {/* Enabled Leagues */}
-            <div>
-              <label className="text-xs block mb-2 font-medium" style={{ color: "var(--text-muted)" }}>Enabled Leagues</label>
-              <p className="text-[10px] mb-3" style={{ color: "var(--text-muted)" }}>
-                Select which leagues to fetch matches from
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {DEFAULT_LEAGUES.map((league) => {
-                  const isEnabled = enabledLeagues.includes(league.name)
-                  return (
-                    <button key={league.id} onClick={() => toggleLeague(league.name)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 text-left"
-                      style={{
-                        background: isEnabled ? "rgba(34,211,238,0.08)" : "var(--bg-tertiary)",
-                        border: `1px solid ${isEnabled ? "rgba(34,211,238,0.2)" : "var(--border)"}`,
-                        color: isEnabled ? "var(--accent-light)" : "var(--text-muted)",
-                      }}>
-                      <div className={`w-4 h-4 rounded flex items-center justify-center transition-all ${isEnabled ? "shadow-sm" : ""}`}
-                        style={{
-                          background: isEnabled ? "var(--accent)" : "transparent",
-                          border: `1px solid ${isEnabled ? "var(--accent)" : "var(--border)"}`,
-                        }}>
-                        {isEnabled && (
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="truncate">{league.name}</span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-              {savingLeagues && (
-                <p className="text-[10px] mt-2" style={{ color: "var(--text-muted)" }}>Saving...</p>
-              )}
-            </div>
-            </div>
-          </div>
-        </div>
-        </div>
-
-        {/* ── Football API Management ── */}
-        <div className="accordion-section">
-          <div role="button" tabIndex={0} className="accordion-header" onClick={() => toggleAccordion("football")} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAccordion("football") } }}>
+          <div role="button" tabIndex={0} className="accordion-header" onClick={() => toggleAccordion("features")} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAccordion("features") } }}>
             <div className="flex items-center gap-2">
               <span className="w-1 h-5 rounded-full shrink-0" style={{ background: "var(--gradient-purple)" }} />
-              Football APIs
+              Features
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); openAddApi() }}>
+              <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); addFeature() }}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                Add API
+                Add Feature
               </Button>
-              <svg className={`accordion-chevron ${accordionOpen["football"] ? "open" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`accordion-chevron ${accordionOpen["features"] ? "open" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
           </div>
-          <div className="accordion-body" style={{ maxHeight: accordionOpen["football"] ? "3000px" : "0" }}>
+          <div className="accordion-body" style={{ maxHeight: accordionOpen["features"] ? "3000px" : "0" }}>
             <div className="accordion-content">
               <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-                Manage football data source APIs. Activate one at a time for match importing.
+                Manage feature cards displayed on your public website. Each feature has a title and description.
               </p>
 
-          {footballApis.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: "var(--bg-tertiary)" }}>
-                <svg className="w-6 h-6" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No football APIs configured</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Add your first API source to start importing matches. Default: yallashoottt.online</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {footballApis.map(api => {
-                const isActive = api.active
-                const lastUsed = api.updated_at ? new Date(api.updated_at).toLocaleDateString() : "Never"
-                return (
-                  <motion.div key={api.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl p-4 flex items-center gap-4"
-                    style={{ background: "var(--bg-tertiary)", border: `1px solid ${isActive ? "rgba(34,211,238,0.2)" : "var(--border)"}` }}>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isActive ? "shadow-lg" : ""}`}
-                      style={{ background: isActive ? "rgba(34,211,238,0.12)" : "var(--bg-secondary)" }}>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        style={{ color: isActive ? "var(--accent)" : "var(--text-muted)" }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{api.api_name}</span>
-                        {isActive && (
-                          <span className="badge text-[9px] px-1.5 py-0" style={{ background: "rgba(34,211,238,0.12)", color: "var(--accent)", border: "1px solid rgba(34,211,238,0.2)" }}>ACTIVE</span>
-                        )}
+              {features.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: "var(--bg-tertiary)" }}>
+                    <svg className="w-6 h-6" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No features configured</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Add features to display on your homepage</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {features.map((f) => (
+                    <div key={f.id} className="rounded-xl p-4"
+                      style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border)" }}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Title</label>
+                          <input type="text" value={f.title} onChange={e => updateFeature(f.id, { title: e.target.value })}
+                            placeholder="Feature title" className="w-full" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Description</label>
+                          <textarea rows={1} value={f.description} onChange={e => updateFeature(f.id, { description: e.target.value })}
+                            placeholder="Feature description" className="w-full resize-none" />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <code className="text-[10px] truncate max-w-[200px] inline-block" style={{ color: "var(--text-muted)" }}>{api.api_url}</code>
-                        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>| {api.api_type}</span>
+                      <div className="flex justify-end">
+                        <Button variant="destructive" size="xs" onClick={() => removeFeature(f.id)}>Remove</Button>
                       </div>
-                      <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>Last used: {lastUsed}</p>
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
-                      {isActive ? (
-                        <Button variant="secondary" size="xs" onClick={() => deactivateApi(api.id)}>Deactivate</Button>
-                      ) : (
-                        <Button variant="secondary" size="xs" onClick={() => activateApi(api.id)}>Activate</Button>
-                      )}
-                      <Button variant="secondary" size="xs" onClick={() => openEditApi(api)}>Edit</Button>
-                      <Button variant="destructive" size="xs" onClick={() => deleteApi(api.id)}>Delete</Button>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          )}
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Add/Edit API Modal */}
-        <Dialog open={showApiModal} onOpenChange={(open) => { if (!open) setShowApiModal(false) }}>
-          <DialogContent showCloseButton={false} className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>{editApi ? "Edit API" : "Add Football API"}</DialogTitle>
-              <DialogDescription>
-                {editApi ? "Update the API configuration" : "Configure a new football data source API"}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>API Name</label>
-                <input type="text" value={apiForm.api_name} onChange={e => setApiForm({...apiForm, api_name: e.target.value})}
-                  placeholder="e.g. Yalla Shoot" className="w-full" />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>API URL</label>
-                <input type="url" value={apiForm.api_url} onChange={e => setApiForm({...apiForm, api_url: e.target.value})}
-                  placeholder="https://example.com/api?date={date}&league={league}" className="w-full" />
-                <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
-                  Use <code>{`{date}`}</code> and <code>{`{league}`}</code> as placeholders for dynamic values
-                </p>
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>API Type</label>
-                <select value={apiForm.api_type} onChange={e => setApiForm({...apiForm, api_type: e.target.value})}
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  <option value="direct">Direct JSON API</option>
-                  <option value="proxy">Proxy (via our server)</option>
-                </select>
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose render={<Button variant="secondary">Cancel</Button>} />
-              <Button onClick={saveApi} disabled={!apiForm.api_name || !apiForm.api_url || savingApi}>
-                {savingApi ? "Saving..." : editApi ? "Update API" : "Add API"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Add Application Modal */}
         <Dialog open={showAddModal} onOpenChange={(open) => { if (!open) setShowAddModal(false) }}>
@@ -873,35 +556,14 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Upload Type</label>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="text-[10px] block mb-1" style={{ color: "var(--text-muted)" }}>APK File</label>
-                    <input type="file" accept=".apk" className="w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium"
-                      style={{ color: "var(--text-muted)" }}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) setAddForm({...addForm, apkFile: f.name, apkUrl: "" }) }} />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] block mb-1" style={{ color: "var(--text-muted)" }}>APK URL</label>
-                    <input type="url" value={addForm.apkUrl} onChange={e => setAddForm({...addForm, apkUrl: e.target.value, apkFile: null})}
-                      placeholder="https://..." className="w-full" />
-                  </div>
-                </div>
-              </div>
-              <div>
                 <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Description</label>
                 <textarea rows={2} value={addForm.description} onChange={e => setAddForm({...addForm, description: e.target.value})}
                   placeholder="Brief app description..." className="w-full resize-none" />
               </div>
               <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Changelog</label>
-                <textarea rows={2} value={addForm.changelog} onChange={e => setAddForm({...addForm, changelog: e.target.value})}
-                  placeholder="What's new..." className="w-full resize-none" />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Banner / Image URL</label>
-                <input type="url" value={addForm.banner} onChange={e => setAddForm({...addForm, banner: e.target.value})}
-                  placeholder="https://example.com/banner.png" className="w-full" />
+                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Image URL</label>
+                <input type="url" value={addForm.image} onChange={e => setAddForm({...addForm, image: e.target.value})}
+                  placeholder="https://example.com/app-icon.png" className="w-full" />
               </div>
             </div>
             <DialogFooter>

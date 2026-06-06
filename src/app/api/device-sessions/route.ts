@@ -56,6 +56,8 @@ export async function GET(request: Request) {
       last_seen_at: presenceMap.get(d.device_id)?.last_seen_at ?? d.last_seen,
     }))
 
+    const rawCount = count ?? 0
+
     if (status === "online") enriched = enriched.filter(d => d.realtime_online)
     else if (status === "offline") enriched = enriched.filter(d => !d.realtime_online)
 
@@ -68,7 +70,13 @@ export async function GET(request: Request) {
       })
     }
 
-    return NextResponse.json({ data: enriched, count: enriched.length })
+    const hasInMemoryFilter = !!(status || activeToday === "true")
+    return NextResponse.json({
+      data: enriched,
+      count: hasInMemoryFilter ? enriched.length : rawCount,
+      totalCount: rawCount,
+      displayedCount: enriched.length,
+    })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to fetch device sessions" }, { status: 500 })
   }

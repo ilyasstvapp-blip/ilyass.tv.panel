@@ -27,8 +27,13 @@ export async function fetchDeviceSessions(options?: {
   if (options?.page) params.set("page", String(options.page))
   if (options?.pageSize) params.set("pageSize", String(options.pageSize))
 
-  const { data, count } = await api(`/api/device-sessions?${params}`)
-  return { data: data as DeviceWithPresence[], count: count ?? 0 }
+  const res = await api(`/api/device-sessions?${params}`)
+  return {
+    data: (res.data ?? []) as DeviceWithPresence[],
+    count: res.count ?? 0,
+    totalCount: res.totalCount ?? res.count ?? 0,
+    displayedCount: res.displayedCount ?? res.count ?? 0,
+  }
 }
 
 
