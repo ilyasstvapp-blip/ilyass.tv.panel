@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     if (date) {
       const res = await fetch(`${BASE}/matches_date_get/${date}/null/null/null`, {
         headers: { Accept: "application/json" },
-        next: { revalidate: 30 },
+        next: { revalidate: 300 },
       })
       if (!res.ok) throw new Error(`YSScores API error: ${res.status}`)
       const json = await res.json()
@@ -43,6 +43,7 @@ export async function GET(request: Request) {
     if (matchId) {
       const res = await fetch(`${BASE}/match_info/${matchId}`, {
         headers: { Accept: "application/json" },
+        next: { revalidate: 300 },
       })
       if (!res.ok) throw new Error(`YSScores API error: ${res.status}`)
       const json = await res.json()

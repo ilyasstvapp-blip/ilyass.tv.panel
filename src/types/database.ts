@@ -26,6 +26,7 @@ export interface ChannelServer {
 
 export interface LiveEvent {
   id: string
+  match_id: number | null
   team1_name: string
   team1_logo: string | null
   team2_name: string
@@ -37,6 +38,9 @@ export interface LiveEvent {
   commentator: string
   channel_key: string
   channel_name: string
+  package_id: string | null
+  is_live: boolean
+  event_status: string
   sort_order: number
   created_at: string
 }
