@@ -84,6 +84,9 @@ function getMatchStatus(event: { match_time: string; is_live?: boolean; event_st
 }
 
 const arabicChannelMap: Record<string, string> = {
+  "\u0628\u064A\u0646 \u0633\u0628\u0648\u0631\u062A \u0645\u0627\u0643\u0633": "beIN SPORTS MAX",
+  "\u0628\u064A\u0646 \u0633\u0628\u0648\u0631\u062A": "beIN SPORTS",
+  "\u0628\u064A \u0627\u0646 \u0633\u0628\u0648\u0631\u062A \u0645\u0627\u0643\u0633": "beIN SPORTS MAX",
   "\u0628\u064A \u0627\u0646 \u0633\u0628\u0648\u0631\u062A": "beIN SPORTS",
   "\u0627\u0644\u0643\u0623\u0633": "ALKASS",
   " SSC ": " SSC ",
@@ -91,10 +94,15 @@ const arabicChannelMap: Record<string, string> = {
 
 function normalizeChannelName(name: string) {
   let n = name.replace(/\b(FR|AR|EN|ES|TR|DE|PT)\b/gi, "")
-  n = n.replace(/\b(HD|FHD|UHD|4K|HDR)\b/gi, "")
+  n = n.replace(/\b(HD|FHD|UHD|4K|HDR|SD)\b/gi, "")
   n = n.replace(/[^a-zA-Z0-9\s]/g, " ")
   n = n.replace(/\s+/g, " ").trim().toLowerCase()
   return n
+}
+
+function isGenericTerm(name: string): boolean {
+  const generic = /^(bein|ssc|alkass| Sports | channel|tv|hd|sd|fhd|uhd|4k)$/i
+  return generic.test(name.trim())
 }
 
 /* ── Searchable League Dropdown ── */
@@ -110,13 +118,16 @@ function LeagueDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const filtered = leagues.filter(l => l.toLowerCase().includes(search.toLowerCase()))
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
         setOpen(false)
         setSearch("")
       }
@@ -125,9 +136,19 @@ function LeagueDropdown({
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setPosition({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    } else {
+      setPosition(null)
+    }
+  }, [open])
+
   return (
-    <div ref={dropdownRef} style={{ position: "relative", minWidth: 200 }}>
+    <div style={{ minWidth: 200 }}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
         style={{
@@ -150,19 +171,19 @@ function LeagueDropdown({
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
-      {open && (
+      {open && position && (
         <div
+          ref={dropdownRef}
           style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            marginTop: 4,
+            position: "fixed",
+            top: position.top,
+            left: position.left,
+            width: position.width,
             background: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: 12,
             overflow: "hidden",
-            zIndex: 50,
+            zIndex: 9999,
             boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
           }}>
           <div style={{ padding: 8 }}>
@@ -185,7 +206,7 @@ function LeagueDropdown({
               }}
             />
           </div>
-          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+          <div style={{ maxHeight: 300, overflowY: "auto" }}>
             <button
               type="button"
               onClick={() => { onChange(null); setOpen(false); setSearch("") }}
@@ -237,12 +258,15 @@ function LeagueDropdown({
 
 function TeamLogo({ src, alt, size = 10 }: { src: string | null | undefined; alt: string; size?: number }) {
   const [error, setError] = useState(false)
-  const initial = alt.charAt(0).toUpperCase()
   if (!src || error) {
     return (
-      <div className={`w-${size} h-${size} rounded-full flex items-center justify-center text-xs font-bold shrink-0 ring-2`}
-        style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": "rgba(34,211,238,0.1)" } as React.CSSProperties}>
-        {initial}
+      <div className={`w-${size} h-${size} rounded-full flex items-center justify-center shrink-0 ring-2`}
+        style={{ background: "var(--bg-tertiary)", "--tw-ring-color": "rgba(34,211,238,0.1)" } as React.CSSProperties}>
+        <svg className="w-5 h-5" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" strokeWidth={1.5} />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2a15 15 0 010 20 15 15 0 010-20z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2 12h20" />
+        </svg>
       </div>
     )
   }
@@ -416,16 +440,25 @@ export default function EventsPage() {
     }
 
     const norm = normalizeChannelName(convertedName)
+    if (isGenericTerm(norm)) return { channel: null, score: 0 }
+
     const exact = allChannels.find(c => c.name === channelName || c.channel_key === channelName)
     if (exact) return { channel: exact, score: 100 }
+
     const normExact = allChannels.find(
       c => normalizeChannelName(c.name) === norm || normalizeChannelName(c.channel_key) === norm
     )
     if (normExact) return { channel: normExact, score: 90 }
-    const partial = allChannels.find(
-      c => normalizeChannelName(c.name).includes(norm) || norm.includes(normalizeChannelName(c.name))
-    )
-    if (partial) return { channel: partial, score: 70 }
+
+    const normParts = norm.split(/\s+/).filter(Boolean)
+    if (normParts.length >= 2) {
+      const matched = allChannels.find(c => {
+        const cNorm = normalizeChannelName(c.name)
+        return normParts.every(p => cNorm.includes(p))
+      })
+      if (matched) return { channel: matched, score: 75 }
+    }
+
     return { channel: null, score: 0 }
   }
 
@@ -464,11 +497,7 @@ export default function EventsPage() {
           message: `"${match.home_team} vs ${match.away_team}" imported successfully`,
         })
       } else {
-        setManualData({ match, detail, commentator, channelName })
-        setManualCommentator(commentator)
-        setManualSelectedChannel(null)
-        setManualChannelSearch("")
-        setManualOpen(true)
+        throw new Error(`No matching IPTV channel found for "${channelName}"`)
       }
     } catch (e) {
       setImportFeedback({
@@ -901,12 +930,17 @@ export default function EventsPage() {
                         </div>
                         {/* Commentator row */}
                         <div className="flex items-center gap-1.5 text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>
-                          <span style={{ fontSize: 12 }}>\uD83C\uDF99\uFE0F</span>
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="font-medium" style={{ color: "var(--accent-cyan)" }}>Commentary:</span>
                           <span>{commentator || "Not Available"}</span>
                         </div>
                         {/* Channel row */}
                         <div className="flex items-center gap-1.5 text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                          <span style={{ fontSize: 12 }}>\uD83D\uDCFA</span>
+                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
                           {channelName ? (
                             <>
                               <span>{channelName}</span>
@@ -1084,14 +1118,7 @@ export default function EventsPage() {
                     <div className="p-4">
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {ev.team1_logo
-                            ? <img src={ev.team1_logo} alt=""
-                                className="w-12 h-12 rounded-full object-cover ring-2 shrink-0"
-                                style={{ "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties} />
-                            : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold ring-2 shrink-0"
-                                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>
-                                {ev.team1_name.charAt(0).toUpperCase()}
-                              </div>}
+                          <TeamLogo src={ev.team1_logo} alt={ev.team1_name} size={12} />
                           <span className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
                             {ev.team1_name}
                           </span>
@@ -1103,14 +1130,7 @@ export default function EventsPage() {
                           <span className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
                             {ev.team2_name}
                           </span>
-                          {ev.team2_logo
-                            ? <img src={ev.team2_logo} alt=""
-                                className="w-12 h-12 rounded-full object-cover ring-2 shrink-0"
-                                style={{ "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties} />
-                            : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold ring-2 shrink-0"
-                                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>
-                                {ev.team2_name.charAt(0).toUpperCase()}
-                              </div>}
+                          <TeamLogo src={ev.team2_logo} alt={ev.team2_name} size={12} />
                         </div>
                       </div>
                       {/* Date + Time */}
@@ -1127,12 +1147,17 @@ export default function EventsPage() {
                       </div>
                       {/* Commentator row */}
                       <div className="flex items-center gap-1.5 text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>
-                        <span style={{ fontSize: 12 }}>\uD83C\uDF99\uFE0F</span>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="font-medium" style={{ color: "var(--accent-cyan)" }}>Commentary:</span>
                         <span>{ev.commentator || "Not Available"}</span>
                       </div>
                       {/* Channel row */}
                       <div className="flex items-center gap-1.5 text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                        <span style={{ fontSize: 12 }}>\uD83D\uDCFA</span>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
                         <span>{ev.channel_name || "Not Available"}</span>
                       </div>
                       {/* Actions */}
