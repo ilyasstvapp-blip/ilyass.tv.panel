@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Navbar from "@/components/dashboard/Navbar"
 import { useAuth } from "@/hooks/useAuth"
 import { useEvents, useLeagues } from "@/hooks/useEvents"
@@ -83,24 +83,153 @@ function getMatchStatus(event: { match_time: string; is_live?: boolean; event_st
   return "FINISHED"
 }
 
-function normalizeChannelName(name: string) {
-  return name.toLowerCase().replace(/\b(hd|fhd|uhd|4k)\b/g, "").replace(/[^a-z0-9\s]/g, "").trim().replace(/\s+/g, " ")
+const arabicChannelMap: Record<string, string> = {
+  "\u0628\u064A \u0627\u0646 \u0633\u0628\u0648\u0631\u062A": "beIN SPORTS",
+  "\u0627\u0644\u0643\u0623\u0633": "ALKASS",
+  " SSC ": " SSC ",
 }
 
-/* ── League Checkbox Component ── */
+function normalizeChannelName(name: string) {
+  let n = name.replace(/\b(FR|AR|EN|ES|TR|DE|PT)\b/gi, "")
+  n = n.replace(/\b(HD|FHD|UHD|4K|HDR)\b/gi, "")
+  n = n.replace(/[^a-zA-Z0-9\s]/g, " ")
+  n = n.replace(/\s+/g, " ").trim().toLowerCase()
+  return n
+}
 
-function LeagueCheckbox({ label, checked, onChange, color }: { label: string; checked: boolean; onChange: (v: boolean) => void; color: string }) {
+/* ── Searchable League Dropdown ── */
+
+function LeagueDropdown({
+  leagues,
+  selected,
+  onChange,
+}: {
+  leagues: string[]
+  selected: string | null
+  onChange: (league: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const filtered = leagues.filter(l => l.toLowerCase().includes(search.toLowerCase()))
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setSearch("")
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
   return (
-    <button onClick={() => onChange(!checked)}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-      style={{
-        background: checked ? `${color}18` : "var(--bg-tertiary)",
-        border: `1px solid ${checked ? `${color}40` : "var(--border)"}`,
-        color: checked ? color : "var(--text-muted)",
-      }}>
-      <div className={`w-2 h-2 rounded-full transition-all ${checked ? "shadow-sm" : "opacity-30"}`} style={{ background: color }} />
-      {label}
-    </button>
+    <div ref={dropdownRef} style={{ position: "relative", minWidth: 200 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          padding: "8px 12px",
+          borderRadius: 12,
+          fontSize: 13,
+          background: "var(--bg-secondary)",
+          border: "1px solid var(--border)",
+          color: "var(--text-primary)",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+        }}>
+        <span style={{ flex: 1, textAlign: "left" }}>
+          {selected || "All Leagues"}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            marginTop: 4,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            overflow: "hidden",
+            zIndex: 50,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+          }}>
+          <div style={{ padding: 8 }}>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search league..."
+              autoFocus
+              style={{
+                width: "100%",
+                padding: "6px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                outline: "none",
+                background: "var(--bg-tertiary)",
+                border: "1px solid var(--border)",
+                color: "var(--text-primary)",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            <button
+              type="button"
+              onClick={() => { onChange(null); setOpen(false); setSearch("") }}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                textAlign: "left",
+                fontSize: 13,
+                background: selected === null ? "rgba(34,211,238,0.08)" : "transparent",
+                color: selected === null ? "var(--accent)" : "var(--text-primary)",
+                border: "none",
+                cursor: "pointer",
+                display: "block",
+              }}>
+              All Leagues
+            </button>
+            {filtered.map(league => (
+              <button
+                key={league}
+                type="button"
+                onClick={() => { onChange(league); setOpen(false); setSearch("") }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  textAlign: "left",
+                  fontSize: 13,
+                  background: selected === league ? "rgba(34,211,238,0.08)" : "transparent",
+                  color: selected === league ? "var(--accent)" : "var(--text-primary)",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "block",
+                }}>
+                {league}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div style={{ padding: 12, fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+                No leagues found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -163,11 +292,10 @@ export default function EventsPage() {
   const [mounted, setMounted] = useState(false)
 
   /* App events state */
-  const [search, setSearch] = useState("")
-  const [leagueFilter, setLeagueFilter] = useState("")
   const [page, setPage] = useState(1)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectMode, setSelectMode] = useState(false)
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
   const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const [editEvent, setEditEvent] = useState<LiveEvent | null>(null)
@@ -189,9 +317,8 @@ export default function EventsPage() {
   const [ysMatches, setYsMatches] = useState<YSMatch[]>([])
   const [ysLoading, setYsLoading] = useState(false)
   const [ysError, setYsError] = useState<string | null>(null)
-  const [ysSelectedLeagues, setYsSelectedLeagues] = useState<Set<string>>(new Set())
+  const [ysSelectedLeague, setYsSelectedLeague] = useState<string | null>(null)
   const [ysAvailableLeagues, setYsAvailableLeagues] = useState<string[]>([])
-  const [ysSearch, setYsSearch] = useState("")
   const [importingId, setImportingId] = useState<number | null>(null)
   const [importFeedback, setImportFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
@@ -210,8 +337,6 @@ export default function EventsPage() {
   /* ── Data Hooks ── */
 
   const { data: events, count, loading, error, refetch } = useEvents({
-    search: search || undefined,
-    league: leagueFilter || undefined,
     page,
     pageSize: 12,
   })
@@ -224,7 +349,6 @@ export default function EventsPage() {
   /* ── Effects ── */
 
   useEffect(() => { setMounted(true) }, [])
-  useEffect(() => { setPage(1) }, [search, leagueFilter])
 
   useEffect(() => {
     if (!importFeedback) return
@@ -246,7 +370,7 @@ export default function EventsPage() {
     setYsError(null)
     setYsMatches([])
     setYsAvailableLeagues([])
-    setYsSelectedLeagues(new Set())
+    setYsSelectedLeague(null)
     try {
       const res = await fetch(`/api/ysscores?date=${ysDate}`)
       const data = await res.json()
@@ -255,7 +379,6 @@ export default function EventsPage() {
       setYsMatches(matches)
       const leagues = [...new Set(matches.map(m => m.league).filter(Boolean))] as string[]
       setYsAvailableLeagues(leagues.sort())
-      setYsSelectedLeagues(new Set(leagues))
     } catch (e) {
       setYsError(e instanceof Error ? e.message : "Failed to fetch matches")
     } finally {
@@ -265,15 +388,11 @@ export default function EventsPage() {
 
   useEffect(() => { fetchYsMatches() }, [fetchYsMatches])
 
-  /* ── Filter & search helpers ── */
+  /* ── Filter helpers ── */
 
   const filteredYsMatches = ysMatches.filter(m => {
-    if (!ysSelectedLeagues.has(m.league)) return false
-    if (!ysSearch) return true
-    const q = ysSearch.toLowerCase()
-    return m.home_team.toLowerCase().includes(q) ||
-      m.away_team.toLowerCase().includes(q) ||
-      m.league.toLowerCase().includes(q)
+    if (ysSelectedLeague && m.league !== ysSelectedLeague) return false
+    return true
   })
 
   const importedFingerprints = new Set(
@@ -284,7 +403,19 @@ export default function EventsPage() {
 
   const findChannel = (channelName: string): { channel: Channel | null; score: number } => {
     if (!channelName || !allChannels.length) return { channel: null, score: 0 }
-    const norm = normalizeChannelName(channelName)
+
+    let convertedName = channelName
+    const arabicRegex = /[\u0600-\u06FF]/
+    if (arabicRegex.test(channelName)) {
+      for (const [arabic, latin] of Object.entries(arabicChannelMap)) {
+        if (channelName.includes(arabic)) {
+          convertedName = channelName.replace(arabic, latin)
+          break
+        }
+      }
+    }
+
+    const norm = normalizeChannelName(convertedName)
     const exact = allChannels.find(c => c.name === channelName || c.channel_key === channelName)
     if (exact) return { channel: exact, score: 100 }
     const normExact = allChannels.find(
@@ -513,6 +644,15 @@ export default function EventsPage() {
      RENDER
      ══════════════════════════════════════════ */
 
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const tomorrowStr = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().slice(0, 10)
+  })()
+  const isToday = ysDate === todayStr
+  const isTomorrow = ysDate === tomorrowStr
+
   return (
     <>
       <Navbar />
@@ -577,25 +717,39 @@ export default function EventsPage() {
                   className="w-40 px-3 py-2 rounded-xl text-sm outline-none"
                   style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
               </div>
-              <div className="flex gap-1 items-end pb-0.5">
-                <Button variant="secondary" size="xs" onClick={setToday}
+              <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}>
+                <button
+                  type="button"
+                  onClick={setToday}
                   style={{
-                    background: ysDate === new Date().toISOString().slice(0, 10)
-                      ? "rgba(34,211,238,0.12)"
-                      : "var(--bg-secondary)",
+                    padding: "5px 14px",
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    border: `1px solid ${isToday ? "var(--accent-cyan)" : "var(--border)"}`,
+                    background: isToday ? "rgba(34,211,238,0.12)" : "var(--bg-secondary)",
+                    color: isToday ? "var(--accent-cyan)" : "var(--text-muted)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}>
                   Today
-                </Button>
-                <Button variant="secondary" size="xs" onClick={setTomorrow}>
+                </button>
+                <button
+                  type="button"
+                  onClick={setTomorrow}
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    border: `1px solid ${isTomorrow ? "var(--accent-cyan)" : "var(--border)"}`,
+                    background: isTomorrow ? "rgba(34,211,238,0.12)" : "var(--bg-secondary)",
+                    color: isTomorrow ? "var(--accent-cyan)" : "var(--text-muted)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}>
                   Tomorrow
-                </Button>
-              </div>
-              <div className="flex-1 min-w-[180px] max-w-xs">
-                <label className="text-xs block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Search matches</label>
-                <input type="text" value={ysSearch} onChange={e => setYsSearch(e.target.value)}
-                  placeholder="Team or league name..."
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </button>
               </div>
               <div className="flex gap-2 items-end pb-0.5">
                 <Button onClick={fetchYsMatches} disabled={ysLoading}>
@@ -608,29 +762,15 @@ export default function EventsPage() {
             </div>
           </div>
 
-          {/* League filters */}
+          {/* League filter dropdown */}
           {ysAvailableLeagues.length > 0 && (
             <div className="px-5 pb-5 mt-2">
               <label className="text-xs block mb-2 font-medium" style={{ color: "var(--text-muted)" }}>Filter by League</label>
-              <div className="flex flex-wrap gap-2">
-                {ysAvailableLeagues.map(league => {
-                  const lc = getLeagueColor(league)
-                  return (
-                    <LeagueCheckbox
-                      key={league}
-                      label={league}
-                      checked={ysSelectedLeagues.has(league)}
-                      onChange={(v) => {
-                        const next = new Set(ysSelectedLeagues)
-                        if (v) next.add(league)
-                        else next.delete(league)
-                        setYsSelectedLeagues(next)
-                      }}
-                      color={lc}
-                    />
-                  )
-                })}
-              </div>
+              <LeagueDropdown
+                leagues={ysAvailableLeagues}
+                selected={ysSelectedLeague}
+                onChange={(league) => setYsSelectedLeague(league)}
+              />
             </div>
           )}
         </motion.div>
@@ -674,18 +814,13 @@ export default function EventsPage() {
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
                 Showing {filteredYsMatches.length} of {ysMatches.length} matches
-                {ysSearch && (
-                  <span className="ml-1" style={{ color: "var(--accent)" }}>
-                    &bull; searched: &ldquo;{ysSearch}&rdquo;
-                  </span>
-                )}
               </p>
             </div>
 
             {filteredYsMatches.length === 0 ? (
               <div className="card-premium p-10 text-center" style={{ background: "var(--surface)" }}>
                 <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  No matches match the selected leagues{ysSearch ? " or search query" : ""}
+                  No matches match the selected league
                 </p>
               </div>
             ) : (
@@ -695,6 +830,11 @@ export default function EventsPage() {
                   const isLive = match.live === 1
                   const isImported = isMatchImported(match)
                   const matchDate = new Date(match.match_timestamp * 1000)
+                  const hasChannels = match.channel_commm && match.channel_commm.length > 0
+                  const firstChannel = hasChannels ? match.channel_commm![0] : null
+                  const commentator = firstChannel?.commentator_name || ""
+                  const channelName = firstChannel?.channel_name || ""
+                  const extraChannels = hasChannels ? match.channel_commm!.length - 1 : 0
                   return (
                     <motion.div
                       key={match.match_id}
@@ -730,7 +870,7 @@ export default function EventsPage() {
                         <div className="flex items-center justify-between gap-2 mb-3">
                           {/* Home team */}
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <TeamLogo src={getLogoUrl(match.home_logo)} alt={match.home_team} size={10} />
+                            <TeamLogo src={getLogoUrl(match.home_logo)} alt={match.home_team} size={12} />
                             <span className="text-sm font-bold block truncate" style={{ color: "var(--text-primary)" }}>
                               {match.home_team}
                             </span>
@@ -744,37 +884,59 @@ export default function EventsPage() {
                             <span className="text-sm font-bold block truncate" style={{ color: "var(--text-primary)" }}>
                               {match.away_team}
                             </span>
-                            <TeamLogo src={getLogoUrl(match.away_logo)} alt={match.away_team} size={10} />
+                            <TeamLogo src={getLogoUrl(match.away_logo)} alt={match.away_team} size={12} />
                           </div>
                         </div>
-                        {/* Date + Time + Action */}
-                        <div className="flex items-center justify-between text-[10px] p-2.5 rounded-lg" style={{ background: "var(--bg-tertiary)" }}>
-                          <div className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="font-medium" style={{ color: lc }}>
-                              {matchDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                            </span>
-                            <span className="font-mono" style={{ color: lc }}>
-                              {matchDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => handleImport(match)}
-                            disabled={importingId === match.match_id || isImported || createMut.isLoading}
-                            style={{
-                              background: isImported ? "rgba(34,197,94,0.15)" : undefined,
-                              color: isImported ? "var(--accent-green)" : undefined,
-                            }}>
-                            {importingId === match.match_id
-                              ? "Importing..."
-                              : isImported
-                                ? "Imported"
-                                : "Import Match"}
-                          </Button>
+                        {/* Date + Time */}
+                        <div className="flex items-center gap-2 text-xs p-2 rounded-lg mb-2" style={{ background: "var(--bg-tertiary)" }}>
+                          <svg className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="font-medium" style={{ color: lc }}>
+                            {matchDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </span>
+                          <span className="font-mono" style={{ color: lc }}>
+                            {matchDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
                         </div>
+                        {/* Commentator row */}
+                        <div className="flex items-center gap-1.5 text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>
+                          <span style={{ fontSize: 12 }}>\uD83C\uDF99\uFE0F</span>
+                          <span>{commentator || "Not Available"}</span>
+                        </div>
+                        {/* Channel row */}
+                        <div className="flex items-center gap-1.5 text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                          <span style={{ fontSize: 12 }}>\uD83D\uDCFA</span>
+                          {channelName ? (
+                            <>
+                              <span>{channelName}</span>
+                              {extraChannels > 0 && (
+                                <span className="badge text-[9px] px-1.5 py-0"
+                                  style={{ background: "rgba(34,211,238,0.12)", color: "var(--accent-cyan)" }}>
+                                  +{extraChannels} more
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span>Not Available</span>
+                          )}
+                        </div>
+                        {/* Import button */}
+                        <Button
+                          size="sm"
+                          onClick={() => handleImport(match)}
+                          disabled={importingId === match.match_id || isImported || createMut.isLoading}
+                          style={{
+                            width: "100%",
+                            background: isImported ? "rgba(34,197,94,0.15)" : undefined,
+                            color: isImported ? "var(--accent-green)" : undefined,
+                          }}>
+                          {importingId === match.match_id
+                            ? "Importing..."
+                            : isImported
+                              ? "Imported"
+                              : "Import Match"}
+                        </Button>
                       </div>
                     </motion.div>
                   )
@@ -799,47 +961,36 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* ── Current App Events Section ── */}
+        {/* ── Imported Events Section ── */}
         <div className="pt-2">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="w-1 h-6 rounded-full" style={{ background: "var(--gradient-purple)" }} />
-            <h2 className="text-lg font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
-              Current App Events
-            </h2>
-          </div>
-
-          {/* Toolbar: search + league filter + batch actions */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <div className="relative flex-1 max-w-xs">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input type="text" placeholder="Search events..." value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1) }}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="w-1 h-6 rounded-full" style={{ background: "var(--gradient-purple)" }} />
+              <h2 className="text-lg font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+                Imported Events
+              </h2>
             </div>
-            <select value={leagueFilter} onChange={e => { setLeagueFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-              <option value="">All leagues</option>
-              {leagues.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-            {selectedIds.size > 0 && (
-              <>
-                <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-                  Delete Selected ({selectedIds.size})
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => setDeleteAllOpen(true)}>
-                  Delete All
-                </Button>
-                <button onClick={() => setSelectedIds(new Set())}
-                  className="text-xs font-medium px-2 py-1 rounded-lg"
-                  style={{ color: "var(--text-muted)", background: "var(--bg-tertiary)" }}>
-                  Clear selection
-                </button>
-              </>
-            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectMode(!selectMode)
+                  if (selectMode) setSelectedIds(new Set())
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  border: `1px solid ${selectMode ? "var(--accent-cyan)" : "var(--border)"}`,
+                  background: selectMode ? "rgba(34,211,238,0.12)" : "var(--bg-secondary)",
+                  color: selectMode ? "var(--accent-cyan)" : "var(--text-muted)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}>
+                {selectMode ? "Exit Select Mode" : "Select Mode"}
+              </button>
+            </div>
           </div>
 
           {/* Error state */}
@@ -851,8 +1002,8 @@ export default function EventsPage() {
 
           {/* Loading skeleton */}
           {loading && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-pulse">
-              {[1, 2].map(i => <div key={i} className="card-premium h-52" style={{ background: "var(--surface)" }} />)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+              {[1, 2, 3, 4].map(i => <div key={i} className="card-premium h-52" style={{ background: "var(--surface)" }} />)}
             </div>
           )}
 
@@ -873,7 +1024,7 @@ export default function EventsPage() {
 
           {/* Event cards grid */}
           {!loading && events.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {sortedEvents.map((ev, idx) => {
                 const status = getMatchStatus(ev)
                 const leagueColor = getLeagueColor(ev.league)
@@ -886,19 +1037,21 @@ export default function EventsPage() {
                     key={ev.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.04 }}
+                    transition={{ delay: idx * 0.03 }}
                     className={`card-premium overflow-hidden group transition-all duration-200 ${isSelected ? "ring-2" : ""}`}
                     style={{
                       background: "var(--surface)",
                       "--tw-ring-color": isSelected ? leagueColor : "transparent",
                     } as React.CSSProperties}>
                     {/* League header */}
-                    <div className="px-5 py-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+                    <div className="px-4 py-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider"
                       style={{ background: `${leagueColor}12`, color: leagueColor }}>
                       <div className="flex items-center gap-2 flex-1">
-                        <input type="checkbox" checked={isSelected}
-                          onChange={() => toggleSelect(ev.id)}
-                          className="rounded accent-cyan-500 w-3.5 h-3.5 cursor-pointer" />
+                        {selectMode && (
+                          <input type="checkbox" checked={isSelected}
+                            onChange={() => toggleSelect(ev.id)}
+                            className="rounded accent-cyan-500 w-3.5 h-3.5 cursor-pointer" />
+                        )}
                         <span className="relative flex w-2 h-2">
                           {isLive && (
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: leagueColor }} />
@@ -908,7 +1061,7 @@ export default function EventsPage() {
                         </span>
                         {ev.league}
                       </div>
-                      <span className="badge text-[9px] px-1.5 py-0"
+                      <span className="badge text-[8px] px-1.5 py-0"
                         style={{
                           background: isLive
                             ? "rgba(34,197,94,0.2)"
@@ -928,9 +1081,9 @@ export default function EventsPage() {
                       </span>
                     </div>
                     {/* Card body */}
-                    <div className="p-5">
-                      <div className="flex items-center justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="p-4">
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
                           {ev.team1_logo
                             ? <img src={ev.team1_logo} alt=""
                                 className="w-12 h-12 rounded-full object-cover ring-2 shrink-0"
@@ -939,15 +1092,15 @@ export default function EventsPage() {
                                 style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>
                                 {ev.team1_name.charAt(0).toUpperCase()}
                               </div>}
-                          <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                          <span className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
                             {ev.team1_name}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 rounded-lg shrink-0" style={{ background: "var(--bg-tertiary)" }}>
-                          <span className="text-xs font-extrabold tracking-widest" style={{ color: leagueColor }}>VS</span>
+                        <div className="flex flex-col items-center px-2 py-1 rounded-lg shrink-0" style={{ background: "var(--bg-tertiary)" }}>
+                          <span className="text-[10px] font-extrabold tracking-widest" style={{ color: leagueColor }}>VS</span>
                         </div>
-                        <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-                          <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                          <span className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
                             {ev.team2_name}
                           </span>
                           {ev.team2_logo
@@ -960,60 +1113,79 @@ export default function EventsPage() {
                               </div>}
                         </div>
                       </div>
-                      {/* Meta info */}
-                      <div className="flex items-center gap-2 text-xs mb-3 p-2 rounded-lg" style={{ background: "var(--bg-tertiary)" }}>
+                      {/* Date + Time */}
+                      <div className="flex items-center gap-2 text-xs p-2 rounded-lg mb-2" style={{ background: "var(--bg-tertiary)" }}>
                         <svg className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {new Date(ev.match_time).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                        <span className="font-medium" style={{ color: leagueColor }}>
+                          {new Date(ev.match_time).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                         </span>
                         <span className="font-mono" style={{ color: leagueColor }}>
                           {new Date(ev.match_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                        {ev.channel_name && (
-                          <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            {ev.channel_name}
-                          </span>
-                        )}
-                        {ev.commentator && (
-                          <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            {ev.commentator}
-                          </span>
-                        )}
+                      {/* Commentator row */}
+                      <div className="flex items-center gap-1.5 text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>
+                        <span style={{ fontSize: 12 }}>\uD83C\uDF99\uFE0F</span>
+                        <span>{ev.commentator || "Not Available"}</span>
                       </div>
-                    </div>
-                    {/* Actions */}
-                    <div className="flex border-t" style={{ borderColor: "var(--border)" }}>
-                      <button onClick={() => openEdit(ev)}
-                        className="px-6 py-3 text-xs font-medium transition-all duration-200 hover:bg-cyan-500/5 flex-1 flex items-center justify-center gap-1.5"
-                        style={{ color: "var(--accent)" }}>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit
-                      </button>
-                      <button onClick={() => setDeleteId(ev.id)} disabled={deleteMut.isLoading}
-                        className="px-6 py-3 text-xs font-medium transition-all duration-200 hover:bg-red-500/5 flex-1 flex items-center justify-center gap-1.5"
-                        style={{ color: "var(--error)" }}>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete
-                      </button>
+                      {/* Channel row */}
+                      <div className="flex items-center gap-1.5 text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                        <span style={{ fontSize: 12 }}>\uD83D\uDCFA</span>
+                        <span>{ev.channel_name || "Not Available"}</span>
+                      </div>
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button onClick={() => openEdit(ev)}
+                          className="flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200"
+                          style={{ background: "rgba(34,211,238,0.08)", color: "var(--accent)" }}>
+                          Edit
+                        </button>
+                        <button onClick={() => setDeleteId(ev.id)} disabled={deleteMut.isLoading}
+                          className="flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200"
+                          style={{ background: "rgba(248,113,113,0.08)", color: "var(--error)" }}>
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 )
               })}
             </div>
+          )}
+
+          {/* Select Mode floating action bar */}
+          {selectMode && events.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 p-3 mt-4 rounded-xl"
+              style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+              <Button size="sm" variant="secondary" onClick={() => {
+                if (selectedIds.size === sortedEvents.length) {
+                  setSelectedIds(new Set())
+                } else {
+                  const allIds = new Set(sortedEvents.map(e => e.id))
+                  setSelectedIds(allIds)
+                }
+              }}>
+                {selectedIds.size === sortedEvents.length ? "Deselect All" : "Select All"}
+              </Button>
+              <Button size="sm" variant="destructive" disabled={selectedIds.size === 0} onClick={() => setBatchDeleteOpen(true)}>
+                Delete Selected ({selectedIds.size})
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => setDeleteAllOpen(true)}>
+                Delete All
+              </Button>
+              {selectedIds.size > 0 && (
+                <button onClick={() => setSelectedIds(new Set())}
+                  className="text-xs font-medium px-2 py-1 rounded-lg"
+                  style={{ color: "var(--text-muted)", background: "var(--bg-tertiary)" }}>
+                  Clear
+                </button>
+              )}
+            </motion.div>
           )}
 
           {/* ── Pagination ── */}
