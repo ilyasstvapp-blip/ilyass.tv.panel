@@ -11,9 +11,12 @@ import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import type { LiveEvent, Channel } from "@/types/database"
 
+/* ── Interfaces ── */
+
 interface YSMatch {
   match_id: number
   league: string
+  league_image: string
   home_team: string
   home_logo: string
   away_team: string
@@ -25,6 +28,7 @@ interface YSMatch {
   status: string
   home_scores: string | null
   away_scores: string | null
+  channel_commm?: Array<{ channel_name: string; commentator_name: string }>
 }
 
 interface YSMatchDetail {
@@ -45,14 +49,21 @@ interface YSMatchDetail {
   channels: { channel_name: string; commentator_name: string }[]
 }
 
-const LOGO_BASE = "https://api-ar.ysscores.com/images/"
+/* ── Constants & Helpers ── */
+
+const LOGO_BASE = "https://imgs.ysscores.com/teams/150/"
+
+const getLogoUrl = (filename: string | null | undefined) => {
+  if (!filename) return null
+  if (filename.startsWith("http")) return filename
+  return `${LOGO_BASE}${filename}`
+}
 
 const leagueColors: Record<string, string> = {
-  "UEFA": "#1a5cff", "Premier": "#e90052", "La Liga": "#ffd700",
-  "Serie A": "#004b87", "Bundesliga": "#e2001a", "Ligue 1": "#003da5",
-  "CAF": "#008000", "AFCON": "#008000", "World Cup": "#8b5cf6",
-  "Champions": "#1a5cff", "Europa": "#ff6b35", "Copa": "#e90052",
-  "Ligue": "#003da5", "Cup": "#f97316",
+  "World Cup": "#8b5cf6", "Champions": "#1a5cff", "Premier": "#e90052",
+  "La Liga": "#ffd700", "Bundesliga": "#e2001a", "Serie A": "#004b87",
+  "Ligue 1": "#003da5", "CAF": "#008000", "Europa": "#ff6b35",
+  "Copa": "#e90052", "UEFA": "#1a5cff", "Cup": "#f97316",
 }
 
 const getLeagueColor = (league: string) => {
@@ -60,12 +71,6 @@ const getLeagueColor = (league: string) => {
     if (league.toLowerCase().includes(key.toLowerCase())) return c
   }
   return "var(--accent)"
-}
-
-const getLogoUrl = (filename: string | null | undefined) => {
-  if (!filename) return null
-  if (filename.startsWith("http")) return filename
-  return `${LOGO_BASE}${filename}`
 }
 
 function getMatchStatus(event: { match_time: string; is_live?: boolean; event_status?: string }) {
@@ -82,6 +87,8 @@ function normalizeChannelName(name: string) {
   return name.toLowerCase().replace(/\b(hd|fhd|uhd|4k)\b/g, "").replace(/[^a-z0-9\s]/g, "").trim().replace(/\s+/g, " ")
 }
 
+/* ── League Checkbox Component ── */
+
 function LeagueCheckbox({ label, checked, onChange, color }: { label: string; checked: boolean; onChange: (v: boolean) => void; color: string }) {
   return (
     <button onClick={() => onChange(!checked)}
@@ -97,10 +104,65 @@ function LeagueCheckbox({ label, checked, onChange, color }: { label: string; ch
   )
 }
 
+/* ── Logo Image with fallback ── */
+
+function TeamLogo({ src, alt, size = 10 }: { src: string | null | undefined; alt: string; size?: number }) {
+  const [error, setError] = useState(false)
+  const initial = alt.charAt(0).toUpperCase()
+  if (!src || error) {
+    return (
+      <div className={`w-${size} h-${size} rounded-full flex items-center justify-center text-xs font-bold shrink-0 ring-2`}
+        style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": "rgba(34,211,238,0.1)" } as React.CSSProperties}>
+        {initial}
+      </div>
+    )
+  }
+  return (
+    <img src={src} alt={alt}
+      className={`w-${size} h-${size} rounded-full object-cover shrink-0 ring-2`}
+      style={{ "--tw-ring-color": "rgba(34,211,238,0.1)" } as React.CSSProperties}
+      onError={() => setError(true)}
+    />
+  )
+}
+
+/* ── Feedback Toast ── */
+
+function FeedbackToast({ feedback, onDismiss }: { feedback: { type: "success" | "error"; message: string } | null; onDismiss: () => void }) {
+  if (!feedback) return null
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+      style={{
+        background: feedback.type === "success" ? "rgba(34,197,94,0.08)" : "rgba(248,113,113,0.08)",
+        border: `1px solid ${feedback.type === "success" ? "rgba(34,197,94,0.15)" : "rgba(248,113,113,0.15)"}`,
+        color: feedback.type === "success" ? "var(--accent-green)" : "var(--error)",
+      }}>
+      {feedback.type === "success" ? (
+        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )}
+      <span className="flex-1">{feedback.message}</span>
+      <button onClick={onDismiss} className="text-xs font-medium cursor-pointer hover:opacity-80" style={{ opacity: 0.6 }}>Dismiss</button>
+    </motion.div>
+  )
+}
+
+/* ── Page ── */
+
 export default function EventsPage() {
   const { user, loading: authLoading } = useAuth()
   const [mounted, setMounted] = useState(false)
 
+  /* App events state */
   const [search, setSearch] = useState("")
   const [leagueFilter, setLeagueFilter] = useState("")
   const [page, setPage] = useState(1)
@@ -109,18 +171,8 @@ export default function EventsPage() {
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false)
   const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const [editEvent, setEditEvent] = useState<LiveEvent | null>(null)
-  const [showCreate, setShowCreate] = useState(false)
-  const [dragId, setDragId] = useState<string | null>(null)
 
-  const { data: events, count, loading, error, refetch } = useEvents({
-    search: search || undefined, league: leagueFilter || undefined, page, pageSize: 12,
-  })
-  const { data: leagues } = useLeagues()
-  const { data: allChannels } = useAllChannels()
-  const createMut = useCreateEvent()
-  const updateMut = useUpdateEvent()
-  const deleteMut = useDeleteLiveEvent()
-
+  /* Edit form state */
   const [formTeam1, setFormTeam1] = useState("")
   const [formTeam2, setFormTeam2] = useState("")
   const [formTime, setFormTime] = useState("")
@@ -132,15 +184,18 @@ export default function EventsPage() {
   const [formTeam1Logo, setFormTeam1Logo] = useState("")
   const [formTeam2Logo, setFormTeam2Logo] = useState("")
 
+  /* YSScores state */
   const [ysDate, setYsDate] = useState(new Date().toISOString().slice(0, 10))
   const [ysMatches, setYsMatches] = useState<YSMatch[]>([])
   const [ysLoading, setYsLoading] = useState(false)
   const [ysError, setYsError] = useState<string | null>(null)
   const [ysSelectedLeagues, setYsSelectedLeagues] = useState<Set<string>>(new Set())
   const [ysAvailableLeagues, setYsAvailableLeagues] = useState<string[]>([])
+  const [ysSearch, setYsSearch] = useState("")
   const [importingId, setImportingId] = useState<number | null>(null)
   const [importFeedback, setImportFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
+  /* Manual channel modal state */
   const [manualOpen, setManualOpen] = useState(false)
   const [manualData, setManualData] = useState<{
     match: YSMatch
@@ -152,6 +207,22 @@ export default function EventsPage() {
   const [manualSelectedChannel, setManualSelectedChannel] = useState<Channel | null>(null)
   const [manualCommentator, setManualCommentator] = useState("")
 
+  /* ── Data Hooks ── */
+
+  const { data: events, count, loading, error, refetch } = useEvents({
+    search: search || undefined,
+    league: leagueFilter || undefined,
+    page,
+    pageSize: 12,
+  })
+  const { data: leagues } = useLeagues()
+  const { data: allChannels } = useAllChannels()
+  const createMut = useCreateEvent()
+  const updateMut = useUpdateEvent()
+  const deleteMut = useDeleteLiveEvent()
+
+  /* ── Effects ── */
+
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setPage(1) }, [search, leagueFilter])
 
@@ -161,103 +232,21 @@ export default function EventsPage() {
     return () => clearTimeout(timer)
   }, [importFeedback])
 
-  const resetForm = () => {
-    setFormTeam1(""); setFormTeam2(""); setFormTime(""); setFormLeague("")
-    setFormCommentator(""); setFormChannelKey(""); setFormChannelName(""); setFormOrder(0)
-    setFormTeam1Logo(""); setFormTeam2Logo(""); setEditEvent(null); setShowCreate(false)
-  }
-
-  const openEdit = (ev: LiveEvent) => {
-    setEditEvent(ev)
-    setFormTeam1(ev.team1_name); setFormTeam2(ev.team2_name)
-    setFormTime(ev.match_time.slice(0, 16))
-    setFormLeague(ev.league); setFormCommentator(ev.commentator || "")
-    setFormChannelKey(ev.channel_key); setFormChannelName(ev.channel_name)
-    setFormOrder((ev as any).sort_order ?? 0)
-    setFormTeam1Logo(ev.team1_logo || ""); setFormTeam2Logo(ev.team2_logo || "")
-    setShowCreate(true)
-  }
-
-  const handleCreate = async () => {
-    try {
-      await createMut.mutate({
-        team1_name: formTeam1, team2_name: formTeam2,
-        match_time: new Date(formTime).toISOString(), league: formLeague,
-        commentator: formCommentator, channel_key: formChannelKey,
-        channel_name: formChannelName, sort_order: formOrder,
-        team1_logo: formTeam1Logo || null, team2_logo: formTeam2Logo || null,
-      })
-      resetForm(); refetch()
-    } catch {}
-  }
-
-  const handleUpdate = async () => {
-    if (!editEvent) return
-    try {
-      await updateMut.mutate(editEvent.id, {
-        team1_name: formTeam1, team2_name: formTeam2,
-        match_time: new Date(formTime).toISOString(), league: formLeague,
-        commentator: formCommentator, channel_key: formChannelKey,
-        channel_name: formChannelName, sort_order: formOrder,
-        team1_logo: formTeam1Logo || null, team2_logo: formTeam2Logo || null,
-      })
-      resetForm(); refetch()
-    } catch {}
-  }
-
-  const handleDelete = async () => {
-    if (!deleteId) return
-    try { await deleteMut.mutate(deleteId); setDeleteId(null); refetch() } catch {}
-  }
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
-
-  const handleBatchDelete = async () => {
-    try {
-      for (const id of selectedIds) await deleteMut.mutate(id)
-      setSelectedIds(new Set()); setBatchDeleteOpen(false); refetch()
-    } catch {}
-  }
-
-  const handleDeleteAll = async () => {
-    try {
-      for (const ev of events) await deleteMut.mutate(ev.id)
-      setDeleteAllOpen(false); refetch()
-    } catch {}
-  }
-
-  const handleDragStart = (id: string) => setDragId(id)
-  const handleDragOver = (e: React.DragEvent) => e.preventDefault()
-  const handleDrop = async (e: React.DragEvent, targetId: string) => {
-    e.preventDefault()
-    if (!dragId || dragId === targetId) { setDragId(null); return }
-    const dragged = events.find(ev => ev.id === dragId)
-    const target = events.find(ev => ev.id === targetId)
-    if (!dragged || !target) { setDragId(null); return }
-    try {
-      await updateMut.mutate(dragId, { sort_order: (target as any).sort_order ?? 0 })
-      await updateMut.mutate(targetId, { sort_order: (dragged as any).sort_order ?? 0 })
-      refetch()
-    } catch {}
-    setDragId(null)
-  }
-  const handleDragEnd = () => setDragId(null)
+  /* ── YSScores date helpers ── */
 
   const setToday = () => setYsDate(new Date().toISOString().slice(0, 10))
   const setTomorrow = () => {
-    const d = new Date(); d.setDate(d.getDate() + 1)
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
     setYsDate(d.toISOString().slice(0, 10))
   }
 
   const fetchYsMatches = useCallback(async () => {
-    setYsLoading(true); setYsError(null); setYsMatches([])
-    setYsAvailableLeagues([]); setYsSelectedLeagues(new Set())
+    setYsLoading(true)
+    setYsError(null)
+    setYsMatches([])
+    setYsAvailableLeagues([])
+    setYsSelectedLeagues(new Set())
     try {
       const res = await fetch(`/api/ysscores?date=${ysDate}`)
       const data = await res.json()
@@ -269,25 +258,45 @@ export default function EventsPage() {
       setYsSelectedLeagues(new Set(leagues))
     } catch (e) {
       setYsError(e instanceof Error ? e.message : "Failed to fetch matches")
-    } finally { setYsLoading(false) }
+    } finally {
+      setYsLoading(false)
+    }
   }, [ysDate])
 
   useEffect(() => { fetchYsMatches() }, [fetchYsMatches])
 
-  const filteredYsMatches = ysMatches.filter(m => ysSelectedLeagues.has(m.league))
-  const importedMatchIds = new Set(events.filter(e => e.match_id != null).map(e => e.match_id!))
+  /* ── Filter & search helpers ── */
+
+  const filteredYsMatches = ysMatches.filter(m => {
+    if (!ysSelectedLeagues.has(m.league)) return false
+    if (!ysSearch) return true
+    const q = ysSearch.toLowerCase()
+    return m.home_team.toLowerCase().includes(q) ||
+      m.away_team.toLowerCase().includes(q) ||
+      m.league.toLowerCase().includes(q)
+  })
+
+  const importedMatchIds = new Set(
+    events.filter(e => e.match_id != null).map(e => e.match_id!)
+  )
 
   const findChannel = (channelName: string): { channel: Channel | null; score: number } => {
     if (!channelName || !allChannels.length) return { channel: null, score: 0 }
     const norm = normalizeChannelName(channelName)
     const exact = allChannels.find(c => c.name === channelName || c.channel_key === channelName)
     if (exact) return { channel: exact, score: 100 }
-    const normExact = allChannels.find(c => normalizeChannelName(c.name) === norm || normalizeChannelName(c.channel_key) === norm)
+    const normExact = allChannels.find(
+      c => normalizeChannelName(c.name) === norm || normalizeChannelName(c.channel_key) === norm
+    )
     if (normExact) return { channel: normExact, score: 90 }
-    const partial = allChannels.find(c => normalizeChannelName(c.name).includes(norm) || norm.includes(normalizeChannelName(c.name)))
+    const partial = allChannels.find(
+      c => normalizeChannelName(c.name).includes(norm) || norm.includes(normalizeChannelName(c.name))
+    )
     if (partial) return { channel: partial, score: 70 }
     return { channel: null, score: 0 }
   }
+
+  /* ── Import handlers ── */
 
   const handleImport = async (match: YSMatch) => {
     setImportingId(match.match_id)
@@ -325,7 +334,10 @@ export default function EventsPage() {
           sort_order: 0,
         })
         refetch()
-        setImportFeedback({ type: "success", message: `"${match.home_team} vs ${match.away_team}" imported successfully` })
+        setImportFeedback({
+          type: "success",
+          message: `"${match.home_team} vs ${match.away_team}" imported successfully`,
+        })
       } else {
         setManualData({ match, detail, commentator, channelName })
         setManualCommentator(commentator)
@@ -334,7 +346,10 @@ export default function EventsPage() {
         setManualOpen(true)
       }
     } catch (e) {
-      setImportFeedback({ type: "error", message: e instanceof Error ? e.message : "Import failed" })
+      setImportFeedback({
+        type: "error",
+        message: e instanceof Error ? e.message : "Import failed",
+      })
     } finally {
       setImportingId(null)
     }
@@ -370,107 +385,285 @@ export default function EventsPage() {
       setManualOpen(false)
       setManualData(null)
       refetch()
-      setImportFeedback({ type: "success", message: `"${match.home_team} vs ${match.away_team}" imported successfully` })
+      setImportFeedback({
+        type: "success",
+        message: `"${match.home_team} vs ${match.away_team}" imported successfully`,
+      })
     } catch (e) {
-      setImportFeedback({ type: "error", message: e instanceof Error ? e.message : "Import failed" })
+      setImportFeedback({
+        type: "error",
+        message: e instanceof Error ? e.message : "Import failed",
+      })
     }
   }
 
+  /* ── CRUD handlers ── */
+
+  const resetForm = () => {
+    setFormTeam1("")
+    setFormTeam2("")
+    setFormTime("")
+    setFormLeague("")
+    setFormCommentator("")
+    setFormChannelKey("")
+    setFormChannelName("")
+    setFormOrder(0)
+    setFormTeam1Logo("")
+    setFormTeam2Logo("")
+    setEditEvent(null)
+  }
+
+  const openEdit = (ev: LiveEvent) => {
+    setEditEvent(ev)
+    setFormTeam1(ev.team1_name)
+    setFormTeam2(ev.team2_name)
+    setFormTime(ev.match_time.slice(0, 16))
+    setFormLeague(ev.league)
+    setFormCommentator(ev.commentator || "")
+    setFormChannelKey(ev.channel_key)
+    setFormChannelName(ev.channel_name)
+    setFormOrder((ev as any).sort_order ?? 0)
+    setFormTeam1Logo(ev.team1_logo || "")
+    setFormTeam2Logo(ev.team2_logo || "")
+  }
+
+  const handleUpdate = async () => {
+    if (!editEvent) return
+    try {
+      await updateMut.mutate(editEvent.id, {
+        team1_name: formTeam1,
+        team2_name: formTeam2,
+        match_time: new Date(formTime).toISOString(),
+        league: formLeague,
+        commentator: formCommentator,
+        channel_key: formChannelKey,
+        channel_name: formChannelName,
+        sort_order: formOrder,
+        team1_logo: formTeam1Logo || null,
+        team2_logo: formTeam2Logo || null,
+      })
+      resetForm()
+      refetch()
+    } catch {}
+  }
+
+  const handleDelete = async () => {
+    if (!deleteId) return
+    try {
+      await deleteMut.mutate(deleteId)
+      setDeleteId(null)
+      refetch()
+    } catch {}
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleBatchDelete = async () => {
+    try {
+      for (const id of selectedIds) await deleteMut.mutate(id)
+      setSelectedIds(new Set())
+      setBatchDeleteOpen(false)
+      refetch()
+    } catch {}
+  }
+
+  const handleDeleteAll = async () => {
+    try {
+      for (const ev of events) await deleteMut.mutate(ev.id)
+      setDeleteAllOpen(false)
+      refetch()
+    } catch {}
+  }
+
   const filteredManualChannels = allChannels.filter(c =>
-    !manualChannelSearch || c.name.toLowerCase().includes(manualChannelSearch.toLowerCase()) || c.channel_key.toLowerCase().includes(manualChannelSearch.toLowerCase())
+    !manualChannelSearch ||
+    c.name.toLowerCase().includes(manualChannelSearch.toLowerCase()) ||
+    c.channel_key.toLowerCase().includes(manualChannelSearch.toLowerCase())
   )
 
   const sortedEvents = [...events].sort((a, b) => {
-    const orderMap: Record<string, number> = { "LIVE": 0, "UPCOMING": 1, "FINISHED": 2 }
+    const orderMap: Record<string, number> = { LIVE: 0, UPCOMING: 1, FINISHED: 2 }
     const statusA = getMatchStatus(a)
     const statusB = getMatchStatus(b)
     if (orderMap[statusA] !== orderMap[statusB]) return orderMap[statusA] - orderMap[statusB]
     return new Date(a.match_time).getTime() - new Date(b.match_time).getTime()
   })
 
+  /* ── Derived stats ── */
+
+  const liveCount = events.filter(e => getMatchStatus(e) === "LIVE").length
+  const upcomingCount = events.filter(e => getMatchStatus(e) === "UPCOMING").length
+  const finishedCount = events.filter(e => getMatchStatus(e) === "FINISHED").length
+  const totalPages = Math.ceil(count / 12)
+
+  /* ── Loading / Auth Guard ── */
+
   if (!mounted || authLoading) {
     return (
       <>
         <Navbar />
         <div className="flex-1 p-6 space-y-6 animate-pulse" style={{ background: "var(--bg-primary)" }}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <div key={i} className="card-premium" style={{height:100}}/>)}</div>
-          {[1,2].map(i => <div key={i} className="card-premium h-52" style={{background:"var(--surface)"}}/>)}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="card-premium" style={{ height: 100 }} />)}
+          </div>
+          <div className="card-premium h-48" style={{ background: "var(--surface)" }} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {[1, 2].map(i => <div key={i} className="card-premium h-52" style={{ background: "var(--surface)" }} />)}
+          </div>
         </div>
       </>
     )
   }
   if (!user) return null
 
-  const totalPages = Math.ceil(count / 12)
-  const liveCount = events.filter(e => getMatchStatus(e) === "LIVE").length
-  const upcomingCount = events.filter(e => getMatchStatus(e) === "UPCOMING").length
-  const finishedCount = events.filter(e => getMatchStatus(e) === "FINISHED").length
+  /* ══════════════════════════════════════════
+     RENDER
+     ══════════════════════════════════════════ */
 
   return (
     <>
       <Navbar />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6" style={{ background: "var(--bg-primary)" }}>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>Live Events</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Import matches from YSScores &bull; manage LIVE, UPCOMING, FINISHED events &bull; drag to reorder</p>
-        </div>
 
-        <div className="card-premium p-5" style={{ background: "var(--surface)" }}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold flex items-center gap-2 text-sm" style={{ color: "var(--text-primary)" }}>
-              <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-purple)" }} />
-              YSScores Auto Import
-            </h3>
-            <span className="badge text-[10px] px-2 py-0.5" style={{ background: "rgba(167,139,250,0.1)", color: "var(--accent-purple)" }}>
-              {ysMatches.length} matches
-            </span>
-          </div>
-          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-            Select a date to fetch matches from YSScores. Click &ldquo;Import Match&rdquo; to add to live events.
+        {/* ── Header ── */}
+        <div className="animate-fade-in">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Live Events
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            YSScores auto-import &bull; match statistics &bull; LIVE, UPCOMING, and FINISHED event management
           </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label className="text-xs block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Date</label>
-              <input type="date" value={ysDate} onChange={e => setYsDate(e.target.value)}
-                className="w-40 px-3 py-2 rounded-xl text-sm outline-none"
-                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-            </div>
-            <div className="flex gap-1 items-end pb-0.5">
-              <Button variant="secondary" size="xs" onClick={setToday}
-                style={{ background: ysDate === new Date().toISOString().slice(0, 10) ? "rgba(34,211,238,0.12)" : "var(--bg-secondary)" }}>
-                Today
-              </Button>
-              <Button variant="secondary" size="xs" onClick={setTomorrow}>Tomorrow</Button>
-            </div>
-            <Button onClick={fetchYsMatches} disabled={ysLoading}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              Refresh
-            </Button>
-          </div>
         </div>
 
-        {importFeedback && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="px-4 py-3 rounded-xl text-sm flex items-center gap-2"
-            style={{
-              background: importFeedback.type === "success" ? "rgba(34,197,94,0.08)" : "rgba(248,113,113,0.08)",
-              border: `1px solid ${importFeedback.type === "success" ? "rgba(34,197,94,0.15)" : "rgba(248,113,113,0.15)"}`,
-              color: importFeedback.type === "success" ? "var(--accent-green)" : "var(--error)",
-            }}>
-            {importFeedback.message}
-            <span onClick={() => setImportFeedback(null)} className="ml-auto cursor-pointer text-xs font-medium" style={{ opacity: 0.6 }}>Dismiss</span>
-          </motion.div>
-        )}
+        {/* ── Statistics ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Total Events", value: count, color: "var(--accent-orange)", delay: 0 },
+            { label: "LIVE", value: liveCount, color: "var(--accent-green)", delay: 1 },
+            { label: "Upcoming", value: upcomingCount, color: "var(--accent-cyan)", delay: 2 },
+            { label: "Finished", value: finishedCount, color: "var(--accent-purple)", delay: 3 },
+          ].map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="card-premium p-5"
+              style={{ background: "var(--surface)" }}>
+              <div className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>{s.label}</div>
+              <p className="text-3xl font-bold tracking-tight" style={{ color: s.color }}>
+                {loading ? "\u2014" : s.value}
+              </p>
+            </motion.div>
+          ))}
+        </div>
 
+        {/* ── Import Center ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card-premium overflow-hidden"
+          style={{ background: "var(--surface)" }}>
+          <div className="px-5 pt-5 pb-2">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold flex items-center gap-2 text-sm" style={{ color: "var(--text-primary)" }}>
+                <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-purple)" }} />
+                Import Center
+              </h3>
+              <span className="badge text-[10px] px-2 py-0.5" style={{ background: "rgba(167,139,250,0.1)", color: "var(--accent-purple)" }}>
+                {ysMatches.length} matches
+              </span>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+              Fetch matches from YSScores and import with one click. Auto-links to your channels.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="text-xs block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Date</label>
+                <input type="date" value={ysDate} onChange={e => setYsDate(e.target.value)}
+                  className="w-40 px-3 py-2 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="flex gap-1 items-end pb-0.5">
+                <Button variant="secondary" size="xs" onClick={setToday}
+                  style={{
+                    background: ysDate === new Date().toISOString().slice(0, 10)
+                      ? "rgba(34,211,238,0.12)"
+                      : "var(--bg-secondary)",
+                  }}>
+                  Today
+                </Button>
+                <Button variant="secondary" size="xs" onClick={setTomorrow}>
+                  Tomorrow
+                </Button>
+              </div>
+              <div className="flex-1 min-w-[180px] max-w-xs">
+                <label className="text-xs block mb-1 font-medium" style={{ color: "var(--text-muted)" }}>Search matches</label>
+                <input type="text" value={ysSearch} onChange={e => setYsSearch(e.target.value)}
+                  placeholder="Team or league name..."
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="flex gap-2 items-end pb-0.5">
+                <Button onClick={fetchYsMatches} disabled={ysLoading}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* League filters */}
+          {ysAvailableLeagues.length > 0 && (
+            <div className="px-5 pb-5 mt-2">
+              <label className="text-xs block mb-2 font-medium" style={{ color: "var(--text-muted)" }}>Filter by League</label>
+              <div className="flex flex-wrap gap-2">
+                {ysAvailableLeagues.map(league => {
+                  const lc = getLeagueColor(league)
+                  return (
+                    <LeagueCheckbox
+                      key={league}
+                      label={league}
+                      checked={ysSelectedLeagues.has(league)}
+                      onChange={(v) => {
+                        const next = new Set(ysSelectedLeagues)
+                        if (v) next.add(league)
+                        else next.delete(league)
+                        setYsSelectedLeagues(next)
+                      }}
+                      color={lc}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── Feedback Toast ── */}
+        <FeedbackToast feedback={importFeedback} onDismiss={() => setImportFeedback(null)} />
+
+        {/* ── YSScores Loading ── */}
         {ysLoading && (
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-4">
-              <span className="w-10 h-10 rounded-full border-2 animate-spin" style={{ borderColor: "var(--accent-purple) transparent transparent transparent" }} />
+              <span className="w-10 h-10 rounded-full border-2 animate-spin"
+                style={{ borderColor: "var(--accent-purple) transparent transparent transparent" }} />
               <span className="text-sm" style={{ color: "var(--text-muted)" }}>Fetching matches from YSScores...</span>
             </div>
           </div>
         )}
 
+        {/* ── YSScores Error ── */}
         {ysError && !ysLoading && (
           <div className="card-premium p-8 text-center" style={{ background: "var(--surface)" }}>
             <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "rgba(248,113,113,0.08)" }}>
@@ -486,26 +679,28 @@ export default function EventsPage() {
           </div>
         )}
 
+        {/* ── YSScores Match Cards ── */}
         {!ysLoading && !ysError && ysMatches.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4">
+            <div className="flex items-center justify-between">
               <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-                {filteredYsMatches.length} of {ysMatches.length} matches
+                Showing {filteredYsMatches.length} of {ysMatches.length} matches
+                {ysSearch && (
+                  <span className="ml-1" style={{ color: "var(--accent)" }}>
+                    &bull; searched: &ldquo;{ysSearch}&rdquo;
+                  </span>
+                )}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {ysAvailableLeagues.map(league => {
-                const lc = getLeagueColor(league)
-                return (
-                  <LeagueCheckbox key={league} label={league} checked={ysSelectedLeagues.has(league)}
-                    onChange={(v) => { const next = new Set(ysSelectedLeagues); if (v) next.add(league); else next.delete(league); setYsSelectedLeagues(next) }}
-                    color={lc} />
-                )
-              })}
-            </div>
+
             {filteredYsMatches.length === 0 ? (
               <div className="card-premium p-10 text-center" style={{ background: "var(--surface)" }}>
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>No matches match the selected leagues</p>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  No matches match the selected leagues{ysSearch ? " or search query" : ""}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -515,61 +710,63 @@ export default function EventsPage() {
                   const isImported = importedMatchIds.has(match.match_id)
                   const matchDate = new Date(match.match_timestamp * 1000)
                   return (
-                    <motion.div key={match.match_id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                    <motion.div
+                      key={match.match_id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03 }}
                       className="card-premium overflow-hidden group hover:scale-[1.01] transition-all duration-200"
                       style={{ background: "var(--surface)" }}>
+                      {/* League header */}
                       <div className="px-4 py-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider"
                         style={{ background: `${lc}14`, color: lc }}>
                         <span className="relative flex w-2 h-2">
-                          {isLive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: lc }} />}
+                          {isLive && (
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: lc }} />
+                          )}
                           <span className="relative inline-flex rounded-full w-2 h-2" style={{ background: lc }} />
                         </span>
                         {match.league}
                         {isLive ? (
-                          <span className="badge text-[8px] px-1.5 py-0 ml-auto animate-pulse" style={{ background: `${lc}24`, color: lc, border: `1px solid ${lc}40` }}>LIVE</span>
+                          <span className="badge text-[8px] px-1.5 py-0 ml-auto animate-pulse"
+                            style={{ background: `${lc}24`, color: lc, border: `1px solid ${lc}40` }}>
+                            LIVE
+                          </span>
                         ) : (
-                          <span className="badge text-[8px] px-1.5 py-0 ml-auto" style={{ background: `${lc}18`, color: lc, border: `1px solid ${lc}30` }}>UPCOMING</span>
+                          <span className="badge text-[8px] px-1.5 py-0 ml-auto"
+                            style={{ background: `${lc}18`, color: lc, border: `1px solid ${lc}30` }}>
+                            UPCOMING
+                          </span>
                         )}
                       </div>
+                      {/* Card body */}
                       <div className="p-4">
                         <div className="flex items-center justify-between gap-2 mb-3">
+                          {/* Home team */}
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2" style={{ "--tw-ring-color": `${lc}24` } as React.CSSProperties}>
-                              {match.home_logo ? (
-                                <img src={getLogoUrl(match.home_logo)!} alt={match.home_team}
-                                  className="w-full h-full object-cover"
-                                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; ((e.currentTarget as HTMLImageElement).nextElementSibling as HTMLElement)?.classList.remove("hidden") }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center text-xs font-bold ${match.home_logo ? "hidden" : ""}`}
-                                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
-                                {match.home_team.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
-                            <span className="text-sm font-bold block truncate" style={{ color: "var(--text-primary)" }}>{match.home_team}</span>
+                            <TeamLogo src={getLogoUrl(match.home_logo)} alt={match.home_team} size={10} />
+                            <span className="text-sm font-bold block truncate" style={{ color: "var(--text-primary)" }}>
+                              {match.home_team}
+                            </span>
                           </div>
+                          {/* VS */}
                           <div className="flex flex-col items-center px-2 py-1 rounded-lg shrink-0" style={{ background: "var(--bg-tertiary)" }}>
                             <span className="text-[10px] font-extrabold tracking-widest" style={{ color: lc }}>VS</span>
                           </div>
+                          {/* Away team */}
                           <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                            <span className="text-sm font-bold block truncate" style={{ color: "var(--text-primary)" }}>{match.away_team}</span>
-                            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2" style={{ "--tw-ring-color": `${lc}24` } as React.CSSProperties}>
-                              {match.away_logo ? (
-                                <img src={getLogoUrl(match.away_logo)!} alt={match.away_team}
-                                  className="w-full h-full object-cover"
-                                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; ((e.currentTarget as HTMLImageElement).previousElementSibling as HTMLElement)?.classList.remove("hidden") }}
-                                />
-                              ) : null}
-                              <div className={`w-full h-full flex items-center justify-center text-xs font-bold ${match.away_logo ? "hidden" : ""}`}
-                                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)" }}>
-                                {match.away_team.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
+                            <span className="text-sm font-bold block truncate" style={{ color: "var(--text-primary)" }}>
+                              {match.away_team}
+                            </span>
+                            <TeamLogo src={getLogoUrl(match.away_logo)} alt={match.away_team} size={10} />
                           </div>
                         </div>
+                        {/* Date + Time + Action */}
                         <div className="flex items-center justify-between text-[10px] p-2.5 rounded-lg" style={{ background: "var(--bg-tertiary)" }}>
                           <div className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                             <span className="font-medium" style={{ color: lc }}>
                               {matchDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                             </span>
@@ -577,12 +774,19 @@ export default function EventsPage() {
                               {matchDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
-                          <Button size="sm" onClick={() => handleImport(match)} disabled={importingId === match.match_id || isImported || createMut.isLoading}
+                          <Button
+                            size="sm"
+                            onClick={() => handleImport(match)}
+                            disabled={importingId === match.match_id || isImported || createMut.isLoading}
                             style={{
                               background: isImported ? "rgba(34,197,94,0.15)" : undefined,
                               color: isImported ? "var(--accent-green)" : undefined,
                             }}>
-                            {importingId === match.match_id ? "Importing..." : isImported ? "Imported" : "Import Match"}
+                            {importingId === match.match_id
+                              ? "Importing..."
+                              : isImported
+                                ? "Imported"
+                                : "Import Match"}
                           </Button>
                         </div>
                       </div>
@@ -591,9 +795,10 @@ export default function EventsPage() {
                 })}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
+        {/* ── YSScores Empty State ── */}
         {!ysLoading && !ysError && ysMatches.length === 0 && (
           <div className="card-premium p-14 text-center" style={{ background: "var(--surface)" }}>
             <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "var(--bg-tertiary)" }}>
@@ -608,169 +813,80 @@ export default function EventsPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "Total Events", value: count, color: "var(--accent-orange)" },
-            { label: "LIVE", value: liveCount, color: "var(--accent-green)" },
-            { label: "Upcoming", value: upcomingCount, color: "var(--accent-cyan)" },
-            { label: "Finished", value: finishedCount, color: "var(--accent-purple)" },
-          ].map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-              className="card-premium p-5" style={{ background: "var(--surface)" }}>
-              <div className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>{s.label}</div>
-              <p className="text-3xl font-bold tracking-tight" style={{ color: s.color }}>
-                {loading ? "\u2014" : s.value}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 max-w-xs">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input type="text" placeholder="Search events..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        {/* ── Current App Events Section ── */}
+        <div className="pt-2">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-1 h-6 rounded-full" style={{ background: "var(--gradient-purple)" }} />
+            <h2 className="text-lg font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Current App Events
+            </h2>
           </div>
-          <select value={leagueFilter} onChange={e => { setLeagueFilter(e.target.value); setPage(1) }}
-            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            <option value="">All leagues</option>
-            {leagues.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <button onClick={() => { resetForm(); setShowCreate(true) }}
-            className="px-4 py-2.5 rounded-xl text-sm font-medium"
-            style={{ background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))", color: "white" }}>
-            <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            New Event
-          </button>
-          {selectedIds.size > 0 && (
-            <>
-              <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>Delete Selected ({selectedIds.size})</Button>
-              <Button variant="destructive" size="sm" onClick={() => setDeleteAllOpen(true)}>Delete All</Button>
-            </>
-          )}
-        </div>
 
-        {error && (
-          <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(248,113,113,0.08)", color: "var(--error)", border: "1px solid rgba(248,113,113,0.15)" }}>
-            {error}
-          </div>
-        )}
-
-        {showCreate && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="card-premium p-6" style={{ background: "var(--surface)" }}>
-            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <span className="w-1 h-5 rounded-full" style={{ background: "var(--gradient-orange)" }} />
-              {editEvent ? "Edit Event" : "New Event"}
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 1</label>
-                <input type="text" value={formTeam1} onChange={e => setFormTeam1(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 2</label>
-                <input type="text" value={formTeam2} onChange={e => setFormTeam2(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Match Time</label>
-                <input type="datetime-local" value={formTime} onChange={e => setFormTime(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>League</label>
-                <input type="text" value={formLeague} onChange={e => setFormLeague(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Commentator</label>
-                <input type="text" value={formCommentator} onChange={e => setFormCommentator(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Channel Key</label>
-                <input type="text" value={formChannelKey} onChange={e => setFormChannelKey(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Channel Name</label>
-                <input type="text" value={formChannelName} onChange={e => setFormChannelName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Sort Order</label>
-                <input type="number" value={formOrder} onChange={e => setFormOrder(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 1 Logo URL</label>
-                <input type="text" value={formTeam1Logo} onChange={e => setFormTeam1Logo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-              <div>
-                <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 2 Logo URL</label>
-                <input type="text" value={formTeam2Logo} onChange={e => setFormTeam2Logo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={editEvent ? handleUpdate : handleCreate}
-                disabled={!formTeam1 || !formTeam2 || !formTime || !formLeague || createMut.isLoading || updateMut.isLoading}
-                className="px-6 py-2.5 rounded-xl text-sm font-medium"
-                style={{ background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))", color: "white", opacity: (!formTeam1 || !formTeam2 || !formTime || !formLeague) ? 0.5 : 1 }}>
-                {editEvent ? "Save Changes" : "Create Event"}
-              </button>
-              <button onClick={resetForm}
-                className="px-6 py-2.5 rounded-xl text-sm font-medium"
-                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                Cancel
-              </button>
-            </div>
-            {(createMut.error || updateMut.error) && (
-              <p className="text-xs mt-3" style={{ color: "var(--error)" }}>{createMut.error || updateMut.error}</p>
-            )}
-          </motion.div>
-        )}
-
-        {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-pulse">
-            {[1,2].map(i => <div key={i} className="card-premium h-52" style={{background:"var(--surface)"}}/>)}
-          </div>
-        ) : events.length === 0 ? (
-          <div className="card-premium p-14 text-center" style={{ background: "var(--surface)" }}>
-            <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "var(--bg-tertiary)" }}>
-              <svg className="w-7 h-7" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          {/* Toolbar: search + league filter + batch actions */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-xs">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
+              <input type="text" placeholder="Search events..." value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             </div>
-            <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No events found</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Create a new event or import from YSScores</p>
-          </div>
-        ) : (
-          <>
+            <select value={leagueFilter} onChange={e => { setLeagueFilter(e.target.value); setPage(1) }}
+              className="px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+              <option value="">All leagues</option>
+              {leagues.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.1)" }}>
-                <span style={{ color: "var(--accent)" }}>{selectedIds.size} selected</span>
-                <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs font-medium" style={{ color: "var(--text-muted)" }}>Clear selection</button>
-              </div>
+              <>
+                <Button variant="destructive" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+                  Delete Selected ({selectedIds.size})
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => setDeleteAllOpen(true)}>
+                  Delete All
+                </Button>
+                <button onClick={() => setSelectedIds(new Set())}
+                  className="text-xs font-medium px-2 py-1 rounded-lg"
+                  style={{ color: "var(--text-muted)", background: "var(--bg-tertiary)" }}>
+                  Clear selection
+                </button>
+              </>
             )}
+          </div>
+
+          {/* Error state */}
+          {error && (
+            <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(248,113,113,0.08)", color: "var(--error)", border: "1px solid rgba(248,113,113,0.15)" }}>
+              {error}
+            </div>
+          )}
+
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-pulse">
+              {[1, 2].map(i => <div key={i} className="card-premium h-52" style={{ background: "var(--surface)" }} />)}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && events.length === 0 && (
+            <div className="card-premium p-14 text-center" style={{ background: "var(--surface)" }}>
+              <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: "var(--bg-tertiary)" }}>
+                <svg className="w-7 h-7" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No events imported yet</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                Use Import Center above to add matches
+              </p>
+            </div>
+          )}
+
+          {/* Event cards grid */}
+          {!loading && events.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {sortedEvents.map((ev, idx) => {
                 const status = getMatchStatus(ev)
@@ -780,50 +896,85 @@ export default function EventsPage() {
                 const isUpcoming = status === "UPCOMING"
                 const isFinished = status === "FINISHED"
                 return (
-                  <motion.div key={ev.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}
-                    draggable onDragStart={() => handleDragStart(ev.id)} onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, ev.id)} onDragEnd={handleDragEnd}
-                    className={`card-premium overflow-hidden group transition-all duration-200 ${isSelected ? "ring-2" : ""} ${dragId === ev.id ? "opacity-50" : ""}`}
-                    style={{ background: "var(--surface)", "--tw-ring-color": isSelected ? leagueColor : "transparent", cursor: "grab" } as React.CSSProperties}>
+                  <motion.div
+                    key={ev.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.04 }}
+                    className={`card-premium overflow-hidden group transition-all duration-200 ${isSelected ? "ring-2" : ""}`}
+                    style={{
+                      background: "var(--surface)",
+                      "--tw-ring-color": isSelected ? leagueColor : "transparent",
+                    } as React.CSSProperties}>
+                    {/* League header */}
                     <div className="px-5 py-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
                       style={{ background: `${leagueColor}12`, color: leagueColor }}>
                       <div className="flex items-center gap-2 flex-1">
-                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(ev.id)} className="rounded accent-cyan-500 w-3.5 h-3.5" />
+                        <input type="checkbox" checked={isSelected}
+                          onChange={() => toggleSelect(ev.id)}
+                          className="rounded accent-cyan-500 w-3.5 h-3.5 cursor-pointer" />
                         <span className="relative flex w-2 h-2">
-                          {isLive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: leagueColor }} />}
-                          <span className="relative inline-flex rounded-full w-2 h-2" style={{ background: isLive ? "#22c55e" : isUpcoming ? leagueColor : "var(--text-muted)" }} />
+                          {isLive && (
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: leagueColor }} />
+                          )}
+                          <span className="relative inline-flex rounded-full w-2 h-2"
+                            style={{ background: isLive ? "#22c55e" : isUpcoming ? leagueColor : "var(--text-muted)" }} />
                         </span>
                         {ev.league}
                       </div>
-                      <span className={`badge text-[9px] px-1.5 py-0`}
+                      <span className="badge text-[9px] px-1.5 py-0"
                         style={{
-                          background: isLive ? "rgba(34,197,94,0.2)" : isUpcoming ? `${leagueColor}20` : "rgba(107,114,128,0.2)",
+                          background: isLive
+                            ? "rgba(34,197,94,0.2)"
+                            : isUpcoming
+                              ? `${leagueColor}20`
+                              : "rgba(107,114,128,0.2)",
                           color: isLive ? "#22c55e" : isUpcoming ? leagueColor : "var(--text-muted)",
-                          border: `1px solid ${isLive ? "rgba(34,197,94,0.3)" : isUpcoming ? `${leagueColor}30` : "rgba(107,114,128,0.3)"}`,
+                          border: `1px solid ${
+                            isLive
+                              ? "rgba(34,197,94,0.3)"
+                              : isUpcoming
+                                ? `${leagueColor}30`
+                                : "rgba(107,114,128,0.3)"
+                          }`,
                         }}>
-                        {isLive && "LIVE"}
-                        {isUpcoming && "UPCOMING"}
-                        {isFinished && "FINISHED"}
+                        {status}
                       </span>
                     </div>
+                    {/* Card body */}
                     <div className="p-5">
                       <div className="flex items-center justify-between gap-3 mb-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {ev.team1_logo
-                            ? <img src={ev.team1_logo} alt="" className="w-12 h-12 rounded-full object-cover ring-2" style={{ "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties} />
-                            : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold ring-2" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>T1</div>}
-                          <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{ev.team1_name}</span>
+                            ? <img src={ev.team1_logo} alt=""
+                                className="w-12 h-12 rounded-full object-cover ring-2 shrink-0"
+                                style={{ "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties} />
+                            : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold ring-2 shrink-0"
+                                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>
+                                {ev.team1_name.charAt(0).toUpperCase()}
+                              </div>}
+                          <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                            {ev.team1_name}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 rounded-lg" style={{ background: "var(--bg-tertiary)" }}>
+                        <div className="flex items-center gap-2 px-3 py-1 rounded-lg shrink-0" style={{ background: "var(--bg-tertiary)" }}>
                           <span className="text-xs font-extrabold tracking-widest" style={{ color: leagueColor }}>VS</span>
                         </div>
                         <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-                          <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{ev.team2_name}</span>
+                          <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                            {ev.team2_name}
+                          </span>
                           {ev.team2_logo
-                            ? <img src={ev.team2_logo} alt="" className="w-12 h-12 rounded-full object-cover ring-2" style={{ "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties} />
-                            : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold ring-2" style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>T2</div>}
+                            ? <img src={ev.team2_logo} alt=""
+                                className="w-12 h-12 rounded-full object-cover ring-2 shrink-0"
+                                style={{ "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties} />
+                            : <div className="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold ring-2 shrink-0"
+                                style={{ background: "var(--bg-tertiary)", color: "var(--text-muted)", "--tw-ring-color": `${leagueColor}30` } as React.CSSProperties}>
+                                {ev.team2_name.charAt(0).toUpperCase()}
+                              </div>}
                         </div>
                       </div>
+                      {/* Meta info */}
                       <div className="flex items-center gap-2 text-xs mb-3 p-2 rounded-lg" style={{ background: "var(--bg-tertiary)" }}>
                         <svg className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -838,29 +989,38 @@ export default function EventsPage() {
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
                         {ev.channel_name && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
                             {ev.channel_name}
                           </span>
                         )}
                         {ev.commentator && (
                           <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
                             {ev.commentator}
                           </span>
                         )}
                       </div>
                     </div>
+                    {/* Actions */}
                     <div className="flex border-t" style={{ borderColor: "var(--border)" }}>
                       <button onClick={() => openEdit(ev)}
                         className="px-6 py-3 text-xs font-medium transition-all duration-200 hover:bg-cyan-500/5 flex-1 flex items-center justify-center gap-1.5"
                         style={{ color: "var(--accent)" }}>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
                         Edit
                       </button>
                       <button onClick={() => setDeleteId(ev.id)} disabled={deleteMut.isLoading}
                         className="px-6 py-3 text-xs font-medium transition-all duration-200 hover:bg-red-500/5 flex-1 flex items-center justify-center gap-1.5"
                         style={{ color: "var(--error)" }}>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                         Delete
                       </button>
                     </div>
@@ -868,17 +1028,111 @@ export default function EventsPage() {
                 )
               })}
             </div>
-          </>
+          )}
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                Previous
+              </Button>
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Page {page} of {totalPages}
+              </span>
+              <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+                Next
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* ── EDIT DIALOG ── */}
+        {editEvent && (
+          <Dialog open={!!editEvent} onOpenChange={(open) => { if (!open) resetForm() }}>
+            <DialogContent showCloseButton={false} className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Edit Event</DialogTitle>
+                <DialogDescription>Update event details for {editEvent.team1_name} vs {editEvent.team2_name}</DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 1</label>
+                  <input type="text" value={formTeam1} onChange={e => setFormTeam1(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 2</label>
+                  <input type="text" value={formTeam2} onChange={e => setFormTeam2(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 1 Logo URL</label>
+                  <input type="text" value={formTeam1Logo} onChange={e => setFormTeam1Logo(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Team 2 Logo URL</label>
+                  <input type="text" value={formTeam2Logo} onChange={e => setFormTeam2Logo(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Match Time</label>
+                  <input type="datetime-local" value={formTime} onChange={e => setFormTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>League</label>
+                  <input type="text" value={formLeague} onChange={e => setFormLeague(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Commentator</label>
+                  <input type="text" value={formCommentator} onChange={e => setFormCommentator(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Channel Key</label>
+                  <input type="text" value={formChannelKey} onChange={e => setFormChannelKey(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Channel Name</label>
+                  <input type="text" value={formChannelName} onChange={e => setFormChannelName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>Sort Order</label>
+                  <input type="number" value={formOrder} onChange={e => setFormOrder(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+                </div>
+              </div>
+              {(updateMut.error) && (
+                <p className="text-xs mt-2" style={{ color: "var(--error)" }}>{updateMut.error}</p>
+              )}
+              <DialogFooter>
+                <DialogClose render={<Button variant="secondary">Cancel</Button>} />
+                <Button onClick={handleUpdate}
+                  disabled={!formTeam1 || !formTeam2 || !formTime || !formLeague || updateMut.isLoading}>
+                  {updateMut.isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-            <span className="text-sm" style={{ color: "var(--text-muted)" }}>Page {page} of {totalPages}</span>
-            <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
-          </div>
-        )}
-
+        {/* ── DELETE DIALOG ── */}
         <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null) }}>
           <DialogContent showCloseButton={false} className="sm:max-w-sm">
             <DialogHeader>
@@ -894,11 +1148,14 @@ export default function EventsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* ── BATCH DELETE DIALOG ── */}
         <Dialog open={batchDeleteOpen} onOpenChange={(open) => { if (!open) setBatchDeleteOpen(false) }}>
           <DialogContent showCloseButton={false} className="sm:max-w-sm">
             <DialogHeader>
               <DialogTitle>Delete Selected Events</DialogTitle>
-              <DialogDescription>Are you sure you want to delete {selectedIds.size} selected events? This action cannot be undone.</DialogDescription>
+              <DialogDescription>
+                Are you sure you want to delete {selectedIds.size} selected events? This action cannot be undone.
+              </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="secondary">Cancel</Button>} />
@@ -909,11 +1166,14 @@ export default function EventsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* ── DELETE ALL DIALOG ── */}
         <Dialog open={deleteAllOpen} onOpenChange={(open) => { if (!open) setDeleteAllOpen(false) }}>
           <DialogContent showCloseButton={false} className="sm:max-w-sm">
             <DialogHeader>
               <DialogTitle>Delete All Events</DialogTitle>
-              <DialogDescription>Are you sure you want to delete all {events.length} events on this page? This action cannot be undone.</DialogDescription>
+              <DialogDescription>
+                Are you sure you want to delete all {events.length} events on this page? This action cannot be undone.
+              </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="secondary">Cancel</Button>} />
@@ -924,12 +1184,18 @@ export default function EventsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* ── CHANNEL NOT FOUND MODAL ── */}
         <Dialog open={manualOpen} onOpenChange={(open) => { if (!open) { setManualOpen(false); setManualData(null) } }}>
           <DialogContent showCloseButton={false} className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Channel Not Found</DialogTitle>
               <DialogDescription>
-                {manualData && <span>"{manualData.channelName}" was not found in your channels. Select a channel manually.</span>}
+                {manualData && (
+                  <span>
+                    &ldquo;{manualData.channelName}&rdquo; was not found in your channels.
+                    Select a channel manually to continue importing.
+                  </span>
+                )}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -951,7 +1217,10 @@ export default function EventsPage() {
               )}
               <div>
                 <label className="text-xs block mb-1.5 font-medium" style={{ color: "var(--text-muted)" }}>
-                  Search Channels <span className="ml-1.5 text-[9px] font-normal" style={{ color: "var(--accent-cyan)" }}>({allChannels.length} total)</span>
+                  Search Channels
+                  <span className="ml-1.5 text-[9px] font-normal" style={{ color: "var(--accent-cyan)" }}>
+                    ({allChannels.length} total)
+                  </span>
                 </label>
                 <input type="text" value={manualChannelSearch} onChange={e => setManualChannelSearch(e.target.value)}
                   placeholder="Search channels by name or key..."
@@ -963,7 +1232,7 @@ export default function EventsPage() {
                   ) : (
                     filteredManualChannels.slice(0, 50).map(ch => (
                       <button key={ch.id} onClick={() => { setManualSelectedChannel(ch); setManualChannelSearch(ch.name) }}
-                        className="w-full text-left px-3 py-2.5 rounded-lg text-xs transition-all flex items-center gap-2"
+                        className="w-full text-left px-3 py-2.5 rounded-lg text-xs transition-all flex items-center gap-2 cursor-pointer"
                         style={{
                           background: manualSelectedChannel?.id === ch.id ? "rgba(34,211,238,0.08)" : "var(--bg-tertiary)",
                           color: "var(--text-primary)",
@@ -973,7 +1242,11 @@ export default function EventsPage() {
                           <span className="font-medium truncate block">{ch.name}</span>
                           <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{ch.channel_key}</span>
                         </div>
-                        {manualSelectedChannel?.id === ch.id && <svg className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                        {manualSelectedChannel?.id === ch.id && (
+                          <svg className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
                       </button>
                     ))
                   )}
@@ -995,6 +1268,7 @@ export default function EventsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </div>
     </>
   )
