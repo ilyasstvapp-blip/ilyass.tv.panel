@@ -33,20 +33,12 @@ export async function POST(request: Request) {
     const { action } = body
 
     if (action === "create") {
-      if (body.match_id) {
-        const { data: existing } = await supabase.from("live_events").select("id").eq("match_id", body.match_id).maybeSingle()
-        if (existing) return NextResponse.json({ error: "Duplicate match_id" }, { status: 409 })
-      }
       const { data, error } = await supabase.from("live_events").insert({
         team1_name: body.team1_name, team2_name: body.team2_name,
         team1_logo: body.team1_logo ?? null, team2_logo: body.team2_logo ?? null,
         match_time: body.match_time, league: body.league, commentator: body.commentator,
         channel_key: body.channel_key, channel_name: body.channel_name,
         sort_order: body.sort_order ?? 0,
-        match_id: body.match_id ?? null,
-        is_live: body.is_live ?? false,
-        event_status: body.event_status ?? "UPCOMING",
-        package_id: body.package_id ?? null,
       }).select().single()
       if (error) throw error
       return NextResponse.json({ data }, { status: 201 })
@@ -64,10 +56,6 @@ export async function POST(request: Request) {
       if (body.channel_key !== undefined) updates.channel_key = body.channel_key
       if (body.channel_name !== undefined) updates.channel_name = body.channel_name
       if (body.sort_order !== undefined) updates.sort_order = body.sort_order
-      if (body.match_id !== undefined) updates.match_id = body.match_id
-      if (body.is_live !== undefined) updates.is_live = body.is_live
-      if (body.event_status !== undefined) updates.event_status = body.event_status
-      if (body.package_id !== undefined) updates.package_id = body.package_id
       const { data, error } = await supabase.from("live_events").update(updates).eq("id", body.id).select().single()
       if (error) throw error
       return NextResponse.json({ data })

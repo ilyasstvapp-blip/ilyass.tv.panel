@@ -276,9 +276,11 @@ export default function EventsPage() {
       m.league.toLowerCase().includes(q)
   })
 
-  const importedMatchIds = new Set(
-    events.filter(e => e.match_id != null).map(e => e.match_id!)
+  const importedFingerprints = new Set(
+    events.map(e => `${e.team1_name}|${e.team2_name}|${e.league}|${e.match_time.slice(0, 10)}`)
   )
+  const isMatchImported = (match: YSMatch) =>
+    importedFingerprints.has(`${match.home_team}|${match.away_team}|${match.league}|${match.match_date}`)
 
   const findChannel = (channelName: string): { channel: Channel | null; score: number } => {
     if (!channelName || !allChannels.length) return { channel: null, score: 0 }
@@ -310,15 +312,10 @@ export default function EventsPage() {
       const commentator = channelInfo.commentator_name || detail.commentator || ""
       const channelName = channelInfo.channel_name || detail.channel_name || ""
 
-      let eventStatus = "FINISHED"
-      if (match.live === 1) eventStatus = "LIVE"
-      else if (match.match_timestamp * 1000 > Date.now()) eventStatus = "UPCOMING"
-
       const { channel: foundChannel } = findChannel(channelName)
 
       if (foundChannel) {
         await createMut.mutate({
-          match_id: match.match_id,
           team1_name: match.home_team,
           team2_name: match.away_team,
           match_time: new Date(match.match_timestamp * 1000).toISOString(),
@@ -326,9 +323,6 @@ export default function EventsPage() {
           commentator,
           channel_key: foundChannel.channel_key,
           channel_name: foundChannel.name,
-          package_id: foundChannel.package_id,
-          is_live: match.live === 1,
-          event_status: eventStatus,
           team1_logo: getLogoUrl(match.home_logo),
           team2_logo: getLogoUrl(match.away_logo),
           sort_order: 0,
@@ -361,13 +355,8 @@ export default function EventsPage() {
     const ch = manualSelectedChannel
     const commentator = manualCommentator || detail.channels?.[0]?.commentator_name || detail.commentator || ""
 
-    let eventStatus = "FINISHED"
-    if (match.live === 1) eventStatus = "LIVE"
-    else if (match.match_timestamp * 1000 > Date.now()) eventStatus = "UPCOMING"
-
     try {
       await createMut.mutate({
-        match_id: match.match_id,
         team1_name: match.home_team,
         team2_name: match.away_team,
         match_time: new Date(match.match_timestamp * 1000).toISOString(),
@@ -375,9 +364,6 @@ export default function EventsPage() {
         commentator,
         channel_key: ch?.channel_key || "",
         channel_name: ch?.name || manualData.channelName,
-        package_id: ch?.package_id || null,
-        is_live: match.live === 1,
-        event_status: eventStatus,
         team1_logo: getLogoUrl(match.home_logo),
         team2_logo: getLogoUrl(match.away_logo),
         sort_order: 0,
@@ -707,7 +693,7 @@ export default function EventsPage() {
                 {filteredYsMatches.map((match, i) => {
                   const lc = getLeagueColor(match.league)
                   const isLive = match.live === 1
-                  const isImported = importedMatchIds.has(match.match_id)
+                  const isImported = isMatchImported(match)
                   const matchDate = new Date(match.match_timestamp * 1000)
                   return (
                     <motion.div

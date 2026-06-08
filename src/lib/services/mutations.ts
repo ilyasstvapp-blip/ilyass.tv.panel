@@ -53,7 +53,7 @@ export async function deleteChannel(id: string) {
 export async function createEvent(data: {
   team1_name: string; team2_name: string; match_time: string; league: string; commentator: string;
   channel_key: string; channel_name: string; team1_logo?: string | null; team2_logo?: string | null;
-  sort_order?: number; match_id?: number | null; is_live?: boolean; event_status?: string; package_id?: string | null
+  sort_order?: number;
 }) {
   return apiPost("/api/live-events", { action: "create", ...data })
 }
