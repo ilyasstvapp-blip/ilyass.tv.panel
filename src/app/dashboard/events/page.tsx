@@ -88,8 +88,14 @@ const arabicChannelMap: Record<string, string> = {
   "\u0628\u064A\u0646 \u0633\u0628\u0648\u0631\u062A": "beIN SPORTS",
   "\u0628\u064A \u0627\u0646 \u0633\u0628\u0648\u0631\u062A \u0645\u0627\u0643\u0633": "beIN SPORTS MAX",
   "\u0628\u064A \u0627\u0646 \u0633\u0628\u0648\u0631\u062A": "beIN SPORTS",
+  "\u0628\u064A \u0625\u0646 \u0633\u0628\u0648\u0631\u062A \u0645\u0627\u0643\u0633": "beIN SPORTS MAX",
+  "\u0628\u064A \u0625\u0646 \u0633\u0628\u0648\u0631\u062A": "beIN SPORTS",
   "\u0627\u0644\u0643\u0623\u0633": "ALKASS",
   " SSC ": " SSC ",
+}
+
+function normalizeArabic(text: string): string {
+  return text.replace(/[\u0625\u0623\u0622]/g, "\u0627").replace(/\u0649/g, "\u064A")
 }
 
 function normalizeChannelName(name: string) {
@@ -431,9 +437,10 @@ export default function EventsPage() {
     let convertedName = channelName
     const arabicRegex = /[\u0600-\u06FF]/
     if (arabicRegex.test(channelName)) {
+      const normalizedArabic = normalizeArabic(channelName)
       for (const [arabic, latin] of Object.entries(arabicChannelMap)) {
-        if (channelName.includes(arabic)) {
-          convertedName = channelName.replace(arabic, latin)
+        if (normalizedArabic.includes(normalizeArabic(arabic))) {
+          convertedName = normalizedArabic.replace(normalizeArabic(arabic), latin)
           break
         }
       }
